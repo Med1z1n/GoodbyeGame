@@ -1,289 +1,355 @@
+// === Constants ===
+const SERVICE_UUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
+const CHAR_UUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
+const ENEMY_START_X = 50;
+const ENEMY_START_Y = 50;
+const ENEMY_SHOOT_PROBABILITY = 0.002;
+const ENEMY_DESCENT_STEP = 10;
+const ENEMY_SPEED = 1;
+const LASER_COOLDOWN = 10000; // 10s
+
 // === BLE Setup ===
-const serviceUUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
-const charUUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
 let device;
 let characteristic;
 
 // === Canvas Setup ===
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-// === Player ===
-const player = {
-    x: canvas.width / 2 - 25,
-    y: canvas.height - 60,
-    width: 50,
-    height: 50,
-    color: '#f1c40f',
-    dx: 0,
-    speed: 5,
-    moveLeft() { this.dx = -this.speed; },
-    moveRight() { this.dx = this.speed; },
-    stopHorizontal() { this.dx = 0; },
-    update() {
-        this.x += this.dx;
-        if (this.x < 0) this.x = 0;
-        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
-    },
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
-};
-
-// === Bullets ===
-const bullets = [];
-function shootBullet() {
-    bullets.push({ x: player.x + player.width / 2 - 5, y: player.y, width: 10, height: 20, speed: -8 });
-}
-function updateBullets() {
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        bullets[i].y += bullets[i].speed;
-        if (bullets[i].y + bullets[i].height < 0) bullets.splice(i, 1);
-    }
-}
-function drawBullets(ctx) {
-    ctx.fillStyle = '#e74c3c';
-    bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
-}
-
-// === Laser ===
-let lastLaserTime = 0;
-const laserCooldown = 10000; // 10s cooldown
-const lasers = [];
-
-function fireLaser() {
-    const now = Date.now();
-    if (now - lastLaserTime >= laserCooldown) {
-        lasers.push({
-            x: player.x + player.width / 2 - 5,
-            y: 0,                   // start at top of canvas
-            width: 10,
-            height: player.y,       // extend down to top of player
-            color: '#00ffff',
-            startTime: now
-        });
-        lastLaserTime = now;
-    }
-}
-
-function updateLasers() {
-    const now = Date.now();
-    for (let i = lasers.length - 1; i >= 0; i--) {
-        if (now - lasers[i].startTime >= 1000) { // 1s duration
-            lasers.splice(i, 1);
-            continue;
-        }
-        // collision with enemies
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            if (rectCollision(lasers[i], enemies[j])) {
-                enemiesToRemoveSet.add(j);
-            }
-        }
-    }
-}
-
-function drawLasers(ctx) {
-    lasers.forEach(l => {
-        ctx.fillStyle = l.color;
-        ctx.fillRect(l.x, l.y, l.width, l.height);
-    });
-}
-
-// === Enemies ===
-const enemies = [];
-const enemyRows = 3;
-const enemyCols = 8;
-const enemyWidth = 40;
-const enemyHeight = 40;
-const enemySpacingX = 20;
-const enemySpacingY = 20;
-let enemyDirection = 1;
-let respawnScheduled = false;
-let enemiesToRemoveSet = new Set();
-
-function initEnemies() {
-    enemies.length = 0;
-    for (let r = 0; r < enemyRows; r++) {
-        for (let c = 0; c < enemyCols; c++) {
-            enemies.push({
-                x: 50 + c * (enemyWidth + enemySpacingX),
-                y: 50 + r * (enemyHeight + enemySpacingY),
-                width: enemyWidth,
-                height: enemyHeight
-            });
-        }
-    }
-}
-
-// === Enemy Bullets ===
-const enemyBullets = [];
-function updateEnemyBullets() {
-    for (let i = enemyBullets.length - 1; i >= 0; i--) {
-        enemyBullets[i].y += enemyBullets[i].speed;
-        if (enemyBullets[i].y > canvas.height) enemyBullets.splice(i, 1);
-        if (rectCollision(enemyBullets[i], player)) {
-            enemyBullets.splice(i, 1);
-            console.log("Player hit!");
-        }
-    }
-}
-
-function drawEnemyBullets(ctx) {
-    ctx.fillStyle = '#ff3333';
-    enemyBullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
-}
-
-// === Update Enemies safely ===
-function updateEnemies() {
-    if (enemies.length === 0) {
-        if (!respawnScheduled) {
-            respawnScheduled = true;
-            setTimeout(() => {
-                initEnemies();
-                respawnScheduled = false;
-            }, 1000);
-        }
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) {
+        console.error('Canvas element not found!');
         return;
     }
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+    const ctx = canvas.getContext('2d');
 
-    // move enemies
-    let shouldDescend = false;
-    enemies.forEach(e => {
-        e.x += enemyDirection;
-        if (e.x < 0 || e.x + e.width > canvas.width) shouldDescend = true;
-    });
-    if (shouldDescend) {
-        enemyDirection *= -1;
-        enemies.forEach(e => e.y += 10);
+    // === Player ===
+    const player = {
+        x: CANVAS_WIDTH / 2 - 25,
+        y: CANVAS_HEIGHT - 60,
+        width: 50,
+        height: 50,
+        color: '#f1c40f',
+        dx: 0,
+        speed: 5,
+        health: 3,
+        moveLeft() { this.dx = -this.speed; },
+        moveRight() { this.dx = this.speed; },
+        stopHorizontal() { this.dx = 0; },
+        update() {
+            this.x += this.dx;
+            if (this.x < 0) this.x = 0;
+            if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
+        },
+        draw(ctx) {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Health: ${this.health}`, CANVAS_WIDTH - 100, 30);
+        }
+    };
+
+    // === Bullets (Object Pooling) ===
+    const bulletPool = [];
+    const bullets = [];
+    function createBulletPool(size) {
+        for (let i = 0; i < size; i++) {
+            bulletPool.push({ x: 0, y: 0, width: 10, height: 20, speed: -8, active: false });
+        }
+    }
+    function getBullet() {
+        let bullet = bulletPool.find(b => !b.active);
+        if (!bullet) {
+            bullet = { x: 0, y: 0, width: 10, height: 20, speed: -8, active: false };
+            bulletPool.push(bullet);
+        }
+        return bullet;
+    }
+    function shootBullet() {
+        const bullet = getBullet();
+        bullet.x = player.x + player.width / 2 - 5;
+        bullet.y = player.y;
+        bullet.active = true;
+        bullets.push(bullet);
+    }
+    function updateBullets() {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            if (!bullets[i].active) continue;
+            bullets[i].y += bullets[i].speed;
+            if (bullets[i].y + bullets[i].height < 0) {
+                bullets[i].active = false;
+                bullets.splice(i, 1);
+            }
+        }
+    }
+    function drawBullets(ctx) {
+        ctx.fillStyle = '#e74c3c';
+        bullets.forEach(b => {
+            if (b.active) ctx.fillRect(b.x, b.y, b.width, b.height);
+        });
     }
 
-    enemiesToRemoveSet.clear();
+    // === Laser ===
+    let lastLaserTime = 0;
+    const lasers = [];
+    function fireLaser() {
+        const now = Date.now();
+        if (now - lastLaserTime >= LASER_COOLDOWN) {
+            lasers.push({
+                x: player.x + player.width / 2 - 5,
+                y: 0,
+                width: 10,
+                height: player.y + player.height,
+                color: '#00ffff',
+                startTime: now
+            });
+            lastLaserTime = now;
+        }
+    }
+    function updateLasers() {
+        const now = Date.now();
+        for (let i = lasers.length - 1; i >= 0; i--) {
+            if (now - lasers[i].startTime >= 1000) {
+                lasers.splice(i, 1);
+            }
+        }
+    }
+    function drawLasers(ctx) {
+        lasers.forEach(l => {
+            ctx.fillStyle = l.color;
+            ctx.fillRect(l.x, l.y, l.width, l.height);
+        });
+    }
 
-    // bullet collisions
-    bullets.forEach((b, bi) => {
-        enemies.forEach((e, ei) => {
-            if (rectCollision(b, e)) {
-                bullets[bi] = null;
-                enemiesToRemoveSet.add(ei);
+    // === Enemies ===
+    const enemies = [];
+    const enemyRows = 3;
+    const enemyCols = 8;
+    const enemyWidth = 40;
+    const enemyHeight = 40;
+    const enemySpacingX = 20;
+    const enemySpacingY = 20;
+    let enemyDirection = ENEMY_SPEED;
+    let respawnScheduled = false;
+    let enemiesToRemoveSet = new Set();
+    function initEnemies() {
+        enemies.length = 0;
+        for (let r = 0; r < enemyRows; r++) {
+            for (let c = 0; c < enemyCols; c++) {
+                enemies.push({
+                    x: ENEMY_START_X + c * (enemyWidth + enemySpacingX),
+                    y: ENEMY_START_Y + r * (enemyHeight + enemySpacingY),
+                    width: enemyWidth,
+                    height: enemyHeight
+                });
+            }
+        }
+    }
+
+    // === Enemy Bullets ===
+    const enemyBullets = [];
+    function updateEnemyBullets() {
+        for (let i = enemyBullets.length - 1; i >= 0; i--) {
+            enemyBullets[i].y += enemyBullets[i].speed;
+            if (enemyBullets[i].y > CANVAS_HEIGHT) {
+                enemyBullets.splice(i, 1);
+                continue;
+            }
+            if (rectCollision(enemyBullets[i], player)) {
+                enemyBullets.splice(i, 1);
+                player.health -= 1;
+                if (player.health <= 0) {
+                    alert('Game Over! Score: ' + score);
+                    player.health = 3;
+                    score = 0;
+                    enemies.length = 0;
+                    bullets.length = 0;
+                    lasers.length = 0;
+                    enemyBullets.length = 0;
+                    initEnemies();
+                }
+            }
+        }
+    }
+    function drawEnemyBullets(ctx) {
+        ctx.fillStyle = '#ff3333';
+        enemyBullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+    }
+
+    // === Update Enemies ===
+    function updateEnemies(deltaTime) {
+        if (enemies.length === 0) {
+            if (!respawnScheduled) {
+                respawnScheduled = true;
+                setTimeout(() => {
+                    initEnemies();
+                    respawnScheduled = false;
+                }, 1000);
+            }
+            return;
+        }
+
+        let shouldDescend = false;
+        enemies.forEach(e => {
+            e.x += enemyDirection * deltaTime;
+            if (e.x < 0 || e.x + e.width > CANVAS_WIDTH) shouldDescend = true;
+        });
+        if (shouldDescend) {
+            enemyDirection *= -1;
+            enemies.forEach(e => e.y += ENEMY_DESCENT_STEP * deltaTime);
+        }
+
+        enemiesToRemoveSet.clear();
+        bullets.forEach((b, bi) => {
+            if (!b.active) return;
+            enemies.forEach((e, ei) => {
+                if (rectCollision(b, e)) {
+                    b.active = false;
+                    bullets.splice(bi, 1);
+                    enemiesToRemoveSet.add(ei);
+                    score += 10;
+                }
+            });
+        });
+        lasers.forEach(l => {
+            enemies.forEach((e, ei) => {
+                if (rectCollision(l, e)) {
+                    enemiesToRemoveSet.add(ei);
+                    score += 20;
+                }
+            });
+        });
+
+        Array.from(enemiesToRemoveSet).sort((a, b) => b - a).forEach(i => enemies.splice(i, 1));
+
+        enemies.forEach(e => {
+            if (Math.random() < ENEMY_SHOOT_PROBABILITY) {
+                enemyBullets.push({
+                    x: e.x + e.width / 2 - 5,
+                    y: e.y + e.height,
+                    width: 10,
+                    height: 20,
+                    speed: 4
+                });
             }
         });
-    });
-
-    // laser collisions handled in updateLasers()
-
-    // remove bullets safely
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        if (bullets[i] === null) bullets.splice(i, 1);
     }
 
-    // remove enemies safely
-    Array.from(enemiesToRemoveSet).sort((a,b)=>b-a).forEach(i => enemies.splice(i,1));
+    // === Draw Enemies ===
+    function drawEnemies(ctx) {
+        ctx.fillStyle = '#2ecc71';
+        enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+    }
 
-    // enemy shooting
-    enemies.forEach(e => {
-        if (Math.random() < 0.002) {
-            enemyBullets.push({
-                x: e.x + e.width / 2 - 5,
-                y: e.y + e.height,
-                width: 10,
-                height: 20,
-                speed: 4
+    // === Collision Detection ===
+    function rectCollision(a, b) {
+        return a.x < b.x + b.width &&
+               a.x + a.width > b.x &&
+               a.y < b.y + b.height &&
+               a.y + a.height > b.y;
+    }
+
+    // === Score ===
+    let score = 0;
+    function drawScore() {
+        ctx.fillStyle = '#fff';
+        ctx.font = '20px Arial';
+        ctx.fillText('Score: ' + score, 10, 30);
+    }
+
+    // === Game Loop ===
+    let lastTime = 0;
+    function gameLoop(timestamp) {
+        const deltaTime = (timestamp - lastTime) / 16.67; // Normalize to ~60 FPS
+        lastTime = timestamp;
+
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        player.update();
+        updateBullets();
+        updateLasers();
+        updateEnemies(deltaTime);
+        updateEnemyBullets();
+        player.draw(ctx);
+        drawBullets(ctx);
+        drawEnemies(ctx);
+        drawLasers(ctx);
+        drawEnemyBullets(ctx);
+        drawScore();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Initialize
+    createBulletPool(50); // Pre-allocate 50 bullets
+    initEnemies();
+    gameLoop();
+
+    // === BLE Connection ===
+    document.getElementById('connectButton').addEventListener('click', async () => {
+        try {
+            device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'Cycler' }],
+                optionalServices: [SERVICE_UUID]
             });
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            characteristic = await service.getCharacteristic(CHAR_UUID);
+            await characteristic.startNotifications();
+            characteristic.addEventListener('characteristicvaluechanged', handleNotification);
+
+            const btn = document.getElementById('connectButton');
+            btn.innerText = "Connected";
+            btn.disabled = true;
+
+            device.addEventListener('gattserverdisconnected', () => {
+                btn.innerText = "Connect to Device";
+                btn.disabled = false;
+                console.log('BLE device disconnected');
+            });
+        } catch (err) {
+            console.error('BLE connection error:', err);
+            alert("Failed to connect: " + err.message);
         }
     });
-}
 
-// === Draw enemies ===
-function drawEnemies(ctx) {
-    ctx.fillStyle = '#2ecc71';
-    enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
-}
-
-// === Collision Detection ===
-function rectCollision(a, b) {
-    return a.x < b.x + b.width &&
-           a.x + a.width > b.x &&
-           a.y < b.y + b.height &&
-           a.y + a.height > b.y;
-}
-
-// === Score ===
-let score = 0;
-function drawScore() {
-    ctx.fillStyle = '#fff';
-    ctx.font = '20px Arial';
-    ctx.fillText('Score: ' + score, 10, 30);
-}
-
-// === Game Loop ===
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    player.update();
-    updateBullets();
-    updateLasers();
-    updateEnemies();
-    updateEnemyBullets();
-    player.draw(ctx);
-    drawBullets(ctx);
-    drawEnemies(ctx);
-    drawLasers(ctx);
-    drawEnemyBullets(ctx);
-    drawScore();
-    requestAnimationFrame(gameLoop);
-}
-
-initEnemies();
-gameLoop();
-
-// === BLE Connection ===
-document.getElementById('connectButton').addEventListener('click', async () => {
-    try {
-        device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'Cycler' }],
-            optionalServices: [serviceUUID]
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(serviceUUID);
-        characteristic = await service.getCharacteristic(charUUID);
-        await characteristic.startNotifications();
-        characteristic.addEventListener('characteristicvaluechanged', handleNotification);
-
-        const btn = document.getElementById('connectButton');
-        btn.innerText = "Connected";
-        btn.disabled = true;
-    } catch (err) {
-        console.error(err);
-        alert("Failed to connect: " + err);
+    // === BLE Notification Handler ===
+    function handleNotification(event) {
+        try {
+            const value = new TextDecoder().decode(event.target.value);
+            if (typeof value !== 'string') {
+                console.error('Invalid BLE data received:', value);
+                return;
+            }
+            if (value.startsWith("1:")) {
+                player.moveLeft();
+                setTimeout(() => player.stopHorizontal(), 150);
+            } else if (value.startsWith("2:")) {
+                player.moveRight();
+                setTimeout(() => player.stopHorizontal(), 150);
+            } else if (value === "3") {
+                fireLaser();
+            } else if (value === "4") {
+                shootBullet();
+            } else {
+                console.warn('Unknown BLE command:', value);
+            }
+        } catch (err) {
+            console.error('Error processing BLE notification:', err);
+        }
     }
-});
 
-// === BLE Notification Handler ===
-function handleNotification(event) {
-    const value = new TextDecoder().decode(event.target.value);
-
-    if (value.startsWith("1:")) {
-        player.moveLeft();
-        setTimeout(() => player.stopHorizontal(), 150);
-    } else if (value.startsWith("2:")) {
-        player.moveRight();
-        setTimeout(() => player.stopHorizontal(), 150);
-    } else if (value === "3") {
-        fireLaser();
-    } else if (value === "4") {
-        shootBullet();
-    }
-}
-
-// === Keyboard Controls ===
-document.addEventListener('keydown', (e) => {
-    switch(e.key) {
-        case "ArrowLeft": player.moveLeft(); break;
-        case "ArrowRight": player.moveRight(); break;
-        case "z": fireLaser(); break;
-        case " ": shootBullet(); break;
-    }
-});
-document.addEventListener('keyup', (e) => {
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.stopHorizontal();
+    // === Keyboard Controls ===
+    document.addEventListener('keydown', (e) => {
+        switch (e.key) {
+            case "ArrowLeft": player.moveLeft(); break;
+            case "ArrowRight": player.moveRight(); break;
+            case "z": fireLaser(); break;
+            case " ": shootBullet(); break;
+        }
+    });
+    document.addEventListener('keyup', (e) => {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.stopHorizontal();
+    });
 });
