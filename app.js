@@ -135,18 +135,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let enemyDirection = ENEMY_SPEED;
     let respawnScheduled = false;
     let enemiesToRemoveSet = new Set();
+
     function initEnemies() {
         enemies.length = 0;
         for (let r = 0; r < enemyRows; r++) {
             for (let c = 0; c < enemyCols; c++) {
-                enemies.push({
+                const enemy = {
                     x: ENEMY_START_X + c * (enemyWidth + enemySpacingX),
                     y: ENEMY_START_Y + r * (enemyHeight + enemySpacingY),
                     width: enemyWidth,
                     height: enemyHeight
-                });
+                };
+                enemies.push(enemy);
             }
         }
+        console.log(`Spawned ${enemies.length} enemies at positions:`, enemies.map(e => `(${e.x}, ${e.y})`));
     }
 
     // === Enemy Bullets ===
@@ -184,9 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (enemies.length === 0) {
             if (!respawnScheduled) {
                 respawnScheduled = true;
+                console.log('Scheduling enemy respawn');
                 setTimeout(() => {
                     initEnemies();
                     respawnScheduled = false;
+                    console.log('Enemies respawned');
                 }, 1000);
             }
             return;
@@ -241,7 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // === Draw Enemies ===
     function drawEnemies(ctx) {
         ctx.fillStyle = '#2ecc71';
-        enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+        enemies.forEach(e => {
+            ctx.fillRect(e.x, e.y, e.width, e.height);
+            console.log(`Drawing enemy at (${e.x}, ${e.y})`);
+        });
     }
 
     // === Collision Detection ===
@@ -282,8 +290,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize
-    createBulletPool(50); // Pre-allocate 50 bullets
+    createBulletPool(50);
     initEnemies();
+    console.log('Initial enemies spawned');
     gameLoop();
 
     // === BLE Connection ===
