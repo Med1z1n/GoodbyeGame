@@ -49,7 +49,7 @@ function drawBullets(ctx) {
 
 // === Laser ===
 let lastLaserTime = 0;
-const laserCooldown = 10000; // 10s
+const laserCooldown = 10000; // 10s cooldown
 const lasers = [];
 
 function fireLaser() {
@@ -125,7 +125,7 @@ function updateEnemyBullets() {
         if (rectCollision(enemyBullets[i], player)) {
             enemyBullets.splice(i, 1);
             console.log("Player hit!");
-            // TODO: lives/game over
+            // TODO: implement lives/game over
         }
     }
 }
@@ -135,54 +135,54 @@ function drawEnemyBullets(ctx) {
     enemyBullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
 }
 
-// === Update Enemies ===
+// === Update Enemies with fixed collision + respawn ===
 function updateEnemies() {
-    if (enemies.length === 0) {
-        if (!respawnScheduled) {
-            respawnScheduled = true;
-            setTimeout(() => {
-                initEnemies();
-                respawnScheduled = false;
-            }, 1000);
+    // Move enemies side to side
+    if (enemies.length > 0) {
+        let shouldDescend = false;
+        enemies.forEach(e => {
+            e.x += 1 * enemyDirection;
+            if (e.x + e.width > canvas.width || e.x < 0) shouldDescend = true;
+        });
+        if (shouldDescend) {
+            enemyDirection *= -1;
+            enemies.forEach(e => e.y += 10);
         }
-        return;
-    }
 
-    // move side to side
-    let shouldDescend = false;
-    enemies.forEach(e => {
-        e.x += 1 * enemyDirection;
-        if (e.x + e.width > canvas.width || e.x < 0) shouldDescend = true;
-    });
-    if (shouldDescend) {
-        enemyDirection *= -1;
-        enemies.forEach(e => e.y += 10);
-    }
-
-    // bullets hit enemies
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            if (rectCollision(bullets[i], enemies[j])) {
-                bullets.splice(i, 1);
-                enemies.splice(j, 1);
-                score++;
-                break;
+        // Check collisions with bullets
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                if (rectCollision(bullets[i], enemies[j])) {
+                    bullets.splice(i, 1);
+                    enemies.splice(j, 1);
+                    score++;
+                    break;
+                }
             }
         }
+
+        // Enemy shooting
+        enemies.forEach(e => {
+            if (Math.random() < 0.002) {
+                enemyBullets.push({
+                    x: e.x + e.width / 2 - 5,
+                    y: e.y + e.height,
+                    width: 10,
+                    height: 20,
+                    speed: 4
+                });
+            }
+        });
     }
 
-    // enemy shooting
-    enemies.forEach(e => {
-        if (Math.random() < 0.002) {
-            enemyBullets.push({
-                x: e.x + e.width / 2 - 5,
-                y: e.y + e.height,
-                width: 10,
-                height: 20,
-                speed: 4
-            });
-        }
-    });
+    // Respawn enemies if cleared
+    if (enemies.length === 0 && !respawnScheduled) {
+        respawnScheduled = true;
+        setTimeout(() => {
+            initEnemies();
+            respawnScheduled = false;
+        }, 1000);
+    }
 }
 
 function drawEnemies(ctx) {
