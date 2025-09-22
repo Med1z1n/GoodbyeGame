@@ -57,24 +57,27 @@ function fireLaser() {
     if (now - lastLaserTime >= laserCooldown) {
         lasers.push({
             x: player.x + player.width / 2 - 5,
-            y: 0,
+            y: 0,                  // top of canvas
             width: 10,
-            height: canvas.height,
-            color: '#00ffff'
+            height: player.y,      // reaches top of player
+            color: '#00ffff',
+            startTime: now
         });
         lastLaserTime = now;
-        console.log("Laser fired!");
-    } else {
-        console.log("Laser on cooldown...");
     }
 }
 
 function updateLasers() {
+    const now = Date.now();
     for (let i = lasers.length - 1; i >= 0; i--) {
+        if (now - lasers[i].startTime >= 1000) {
+            lasers.splice(i, 1);
+            continue;
+        }
+        // collision with enemies
         for (let j = enemies.length - 1; j >= 0; j--) {
             if (rectCollision(lasers[i], enemies[j])) {
                 enemies.splice(j, 1);
-                // laser continues, hits multiple enemies
                 score++;
             }
         }
@@ -112,7 +115,31 @@ function initEnemies() {
     }
 }
 
+// === Enemy Bullets ===
+const enemyBullets = [];
+function updateEnemyBullets() {
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        enemyBullets[i].y += enemyBullets[i].speed;
+        if (enemyBullets[i].y > canvas.height) enemyBullets.splice(i, 1);
+        if (rectCollision(enemyBullets[i], player)) {
+            enemyBullets.splice(i, 1);
+            console.log("Player hit!");
+            // TODO: handle lives/game over
+        }
+    }
+}
+function drawEnemyBullets(ctx) {
+    ctx.fillStyle = '#ff3333';
+    enemyBullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+}
+
+// === Update Enemies ===
 function updateEnemies() {
+    if (enemies.length === 0) {
+        setTimeout(initEnemies, 1000); // respawn quickly
+        return;
+    }
+
     let shouldDescend = false;
     enemies.forEach(e => {
         e.x += 1 * enemyDirection;
@@ -123,7 +150,7 @@ function updateEnemies() {
         enemies.forEach(e => e.y += 10);
     }
 
-    // bullets collide with enemies
+    // bullets hit enemies
     for (let i = bullets.length - 1; i >= 0; i--) {
         for (let j = enemies.length - 1; j >= 0; j--) {
             if (rectCollision(bullets[i], enemies[j])) {
@@ -134,6 +161,19 @@ function updateEnemies() {
             }
         }
     }
+
+    // enemy shooting randomly
+    enemies.forEach(e => {
+        if (Math.random() < 0.002) { // adjust rate
+            enemyBullets.push({
+                x: e.x + e.width / 2 - 5,
+                y: e.y + e.height,
+                width: 10,
+                height: 20,
+                speed: 4
+            });
+        }
+    });
 }
 
 function drawEnemies(ctx) {
@@ -164,10 +204,12 @@ function gameLoop() {
     updateBullets();
     updateEnemies();
     updateLasers();
+    updateEnemyBullets();
     player.draw(ctx);
     drawBullets(ctx);
     drawEnemies(ctx);
     drawLasers(ctx);
+    drawEnemyBullets(ctx);
     drawScore();
     requestAnimationFrame(gameLoop);
 }
