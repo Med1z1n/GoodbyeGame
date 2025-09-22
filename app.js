@@ -97,14 +97,16 @@ document.getElementById('connectButton').addEventListener('click', async () => {
 function handleNotification(event) {
     const value = new TextDecoder().decode(event.target.value);
 
-    switch(value) {
-        case "1": player.moveLeft(); break;
-        case "2": player.moveRight(); break;
-        case "3": player.jump(); break;
-        case "4": player.shoot(); break;
-        case "stopLeft": if(player.dx < 0) player.stopHorizontal(); break;
-        case "stopRight": if(player.dx > 0) player.stopHorizontal(); break;
-        default: break;
+    if (value.startsWith("1:")) {
+        player.moveLeft();
+        setTimeout(() => player.stopHorizontal(), 150); // stop after short delay
+    } else if (value.startsWith("2:")) {
+        player.moveRight();
+        setTimeout(() => player.stopHorizontal(), 150);
+    } else if (value === "3") {
+        player.jump();
+    } else if (value === "4") {
+        player.shoot();
     }
 }
 
