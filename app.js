@@ -83,12 +83,15 @@ document.getElementById('connectButton').addEventListener('click', async () => {
         await characteristic.startNotifications();
         characteristic.addEventListener('characteristicvaluechanged', handleNotification);
 
-        alert("Connected!");
+        const btn = document.getElementById('connectButton');
+        btn.innerText = "Connected";
+        btn.disabled = true; // optional: prevent double connect
     } catch (err) {
         console.error(err);
         alert("Failed to connect: " + err);
     }
 });
+
 
 // Handle BLE messages
 function handleNotification(event) {
