@@ -92,6 +92,25 @@ document.getElementById('connectButton').addEventListener('click', async () => {
     }
 });
 
+// Keyboard controls
+document.addEventListener('keydown', (e) => {
+    switch(e.key) {
+        case "ArrowLeft":  player.moveLeft(); break;
+        case "ArrowRight": player.moveRight(); break;
+        case "ArrowUp":    player.jump(); break;
+        case " ":          player.shoot(); break; // spacebar
+        case "z":          player.shoot(); break; // alternative
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    switch(e.key) {
+        case "ArrowLeft":
+        case "ArrowRight":
+            player.stopHorizontal();
+            break;
+    }
+});
 
 // Handle BLE messages
 function handleNotification(event) {
