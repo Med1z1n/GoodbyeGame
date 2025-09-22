@@ -140,13 +140,13 @@ document.addEventListener('DOMContentLoaded', () => {
         enemies.length = 0;
         for (let r = 0; r < enemyRows; r++) {
             for (let c = 0; c < enemyCols; c++) {
-                const enemy = {
-                    x: ENEMY_START_X + c * (enemyWidth + enemySpacingX),
-                    y: ENEMY_START_Y + r * (enemyHeight + enemySpacingY),
-                    width: enemyWidth,
-                    height: enemyHeight
-                };
-                enemies.push(enemy);
+                const x = ENEMY_START_X + c * (enemyWidth + enemySpacingX);
+                const y = ENEMY_START_Y + r * (enemyHeight + enemySpacingY);
+                if (isNaN(x) || isNaN(y)) {
+                    console.error('Invalid enemy position:', { x, y });
+                    continue;
+                }
+                enemies.push({ x, y, width: enemyWidth, height: enemyHeight });
             }
         }
         console.log(`Spawned ${enemies.length} enemies at positions:`, enemies.map(e => `(${e.x}, ${e.y})`));
@@ -197,14 +197,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (isNaN(deltaTime) || isNaN(enemyDirection)) {
+            console.error('Invalid deltaTime or enemyDirection:', { deltaTime, enemyDirection });
+            return;
+        }
+
         let shouldDescend = false;
         enemies.forEach(e => {
-            e.x += enemyDirection * deltaTime;
+            const newX = e.x + enemyDirection * deltaTime;
+            if (isNaN(newX)) {
+                console.error('NaN detected in enemy x update:', { e, enemyDirection, deltaTime });
+                e.x = ENEMY_START_X; // Reset to prevent NaN
+            } else {
+                e.x = newX;
+            }
             if (e.x < 0 || e.x + e.width > CANVAS_WIDTH) shouldDescend = true;
         });
         if (shouldDescend) {
             enemyDirection *= -1;
-            enemies.forEach(e => e.y += ENEMY_DESCENT_STEP * deltaTime);
+            enemies.forEach(e => {
+                const newY = e.y + ENEMY_DESCENT_STEP * deltaTime;
+                if (isNaN(newY)) {
+                    console.error('NaN detected in enemy y update:', { e, deltaTime });
+                    e.y = ENEMY_START_Y;
+                } else {
+                    e.y = newY;
+                }
+            });
         }
 
         enemiesToRemoveSet.clear();
@@ -247,6 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawEnemies(ctx) {
         ctx.fillStyle = '#2ecc71';
         enemies.forEach(e => {
+            if (isNaN(e.x) || isNaN(e.y)) {
+                console.error('Invalid enemy position in draw:', e);
+                return;
+            }
             ctx.fillRect(e.x, e.y, e.width, e.height);
             console.log(`Drawing enemy at (${e.x}, ${e.y})`);
         });
@@ -269,9 +292,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === Game Loop ===
-    let lastTime = 0;
+    let lastTime = performance.now(); // Initialize with current time
     function gameLoop(timestamp) {
-        const deltaTime = (timestamp - lastTime) / 16.67; // Normalize to ~60 FPS
+        let deltaTime = (timestamp - lastTime) / 16.67; // Normalize to ~60 FPS
+        if (isNaN(deltaTime) || !isFinite(deltaTime)) {
+            console.warn('Invalid deltaTime, skipping frame:', deltaTime);
+            deltaTime = 1; // Fallback to avoid NaN propagation
+        }
         lastTime = timestamp;
 
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -293,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createBulletPool(50);
     initEnemies();
     console.log('Initial enemies spawned');
-    gameLoop();
+    requestAnimationFrame(gameLoop);
 
     // === BLE Connection ===
     document.getElementById('connectButton').addEventListener('click', async () => {
