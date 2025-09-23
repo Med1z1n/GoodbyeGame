@@ -1,9 +1,9 @@
 # SiennaGame
 Github Pages Video Game Controlled by nRF5340 DK
 
-This is again dedicated to the person I love most, Sienna.
+This is again dedicated to the person I love most.
 
-Deploys to https://med1z1n.github.io/SiennaGame/
+Deploys to https://med1z1n.github.io/GoodbyeGame/
 
 Controls:
   PC: left, right arrowkeys do exactly that. Z is laser (10 second) cooldown, space bar is shoot.
