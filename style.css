@@ -89,8 +89,8 @@ h1 {
 }
 
 #gameCanvas {
-    width: auto;
-    height: 60vw;
+    width: 60vw;
+    height: auto;
     display: block;
     margin: 0 auto;
     background-color: #333;
