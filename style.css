@@ -45,7 +45,7 @@ h1 {
 }
 
 #gameCanvas {
-    width: 100vw;
+    width: 75vw;
     height: auto;
     display: block;
     margin: 0 auto;
