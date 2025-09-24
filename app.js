@@ -7,6 +7,11 @@ const CANVAS_HEIGHT = canvas.height;
 let currentGame = null;
 
 const backToMenuButton = document.getElementById("backToMenuButton");
+const pauseButton = document.getElementById("pauseButton");
+
+pauseButton.addEventListener("click", () => {
+    paused = true;
+});
 
 backToMenuButton.addEventListener("click", () => {
     // Stop the game loop if needed (you may want a flag)
