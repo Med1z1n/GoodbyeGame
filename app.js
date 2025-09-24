@@ -5,18 +5,26 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const ENEMY_START_X = 50;
 const ENEMY_START_Y = 50;
-const ENEMY_SHOOT_PROBABILITY = 0.002;
 const ENEMY_DESCENT_STEP = 10;
-const ENEMY_SPEED = 1;
+const BASE_ENEMY_SPEED = 1;
+const BASE_ENEMY_SHOOT_PROB = 0.002;
 const LASER_COOLDOWN = 10000; // 10s
 
 // === BLE Setup ===
 let device;
 let characteristic;
 
-// === Movement State (for BLE toggling) ===
+// === Movement State ===
 let leftPressed = false;
 let rightPressed = false;
+
+// === Pause/Resume ===
+let isPaused = false;
+function togglePause() {
+    isPaused = !isPaused;
+    const btn = document.getElementById('pauseButton');
+    btn.innerText = isPaused ? "Resume" : "Pause";
+}
 
 // === Canvas Setup ===
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 this.dx = 0;
             }
-
             this.x += this.dx;
             if (this.x < 0) this.x = 0;
             if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
@@ -61,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // === Bullets (Object Pooling) ===
+    // === Bullets ===
     const bulletPool = [];
     const bullets = [];
     function createBulletPool(size) {
@@ -141,9 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const enemyHeight = 40;
     const enemySpacingX = 20;
     const enemySpacingY = 20;
-    let enemyDirection = ENEMY_SPEED;
+    let enemyDirection = BASE_ENEMY_SPEED;
     let respawnScheduled = false;
     let enemiesToRemoveSet = new Set();
+    let waveNumber = 1;
 
     function initEnemies() {
         enemies.length = 0;
@@ -165,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 enemyBullets.splice(i, 1);
                 continue;
             }
-
             bullet.y += bullet.speed;
             if (bullet.y > CANVAS_HEIGHT) {
                 enemyBullets.splice(i, 1);
@@ -192,6 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!respawnScheduled) {
                 respawnScheduled = true;
                 setTimeout(() => {
+                    waveNumber++;
+                    enemyDirection = BASE_ENEMY_SPEED + waveNumber * 0.5;
                     initEnemies();
                     respawnScheduled = false;
                 }, 1000);
@@ -233,13 +242,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Array.from(enemiesToRemoveSet).sort((a, b) => b - a).forEach(i => enemies.splice(i, 1));
 
         enemies.forEach(e => {
-            if (Math.random() < ENEMY_SHOOT_PROBABILITY) {
+            const shootChance = BASE_ENEMY_SHOOT_PROB + waveNumber * 0.001;
+            if (Math.random() < shootChance) {
                 enemyBullets.push({
                     x: e.x + e.width / 2 - 5,
                     y: e.y + e.height,
                     width: 10,
                     height: 20,
-                    speed: 4
+                    speed: 4 + 0.2 * waveNumber
                 });
             }
         });
@@ -259,39 +269,32 @@ document.addEventListener('DOMContentLoaded', () => {
                a.y + a.height > b.y;
     }
 
-    // === Score ===
+    // === Score & Wave ===
     let score = 0;
-    function drawScore() {
+    function drawHUD() {
         ctx.fillStyle = '#fff';
         ctx.font = '20px Arial';
         ctx.fillText('Score: ' + score, 10, 30);
+        ctx.fillText('Wave: ' + waveNumber, 10, 60);
     }
 
     // === Reset Game ===
     function restartGame() {
-        // Reset player
         player.x = CANVAS_WIDTH / 2 - player.width / 2;
         player.y = CANVAS_HEIGHT - 60;
         player.dx = 0;
         player.health = 3;
-
-        // Reset input state
         leftPressed = false;
         rightPressed = false;
-
-        // Clear projectiles
         bullets.length = 0;
         lasers.length = 0;
         enemyBullets.length = 0;
-
-        // Reset globals
         score = 0;
         lastLaserTime = 0;
-        enemyDirection = ENEMY_SPEED;
+        waveNumber = 1;
+        enemyDirection = BASE_ENEMY_SPEED;
         respawnScheduled = false;
         enemiesToRemoveSet.clear();
-
-        // Re-init enemies
         initEnemies();
     }
 
@@ -303,21 +306,34 @@ document.addEventListener('DOMContentLoaded', () => {
         lastTime = timestamp;
 
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        player.update();
-        updateBullets();
-        updateLasers();
-        updateEnemies(deltaTime);
-        updateEnemyBullets();
+
+        if (!isPaused) {
+            player.update();
+            updateBullets();
+            updateLasers();
+            updateEnemies(deltaTime);
+            updateEnemyBullets();
+        }
+
         player.draw(ctx);
         drawBullets(ctx);
         drawEnemies(ctx);
         drawLasers(ctx);
         drawEnemyBullets(ctx);
-        drawScore();
+        drawHUD();
+
+        if (isPaused) {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.fillStyle = "#fff";
+            ctx.font = "40px Arial";
+            ctx.fillText("Paused", CANVAS_WIDTH/2 - 70, CANVAS_HEIGHT/2);
+        }
+
         requestAnimationFrame(gameLoop);
     }
 
-    // Initialize
+    // === Init ===
     createBulletPool(50);
     initEnemies();
     requestAnimationFrame(gameLoop);
@@ -350,22 +366,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // === Pause Button ===
+    document.getElementById('pauseButton').addEventListener('click', togglePause);
+
     // === BLE Notification Handler ===
     function handleNotification(event) {
         try {
             const value = new TextDecoder().decode(event.target.value);
-
-            if (value.startsWith("1:")) {
-                shootBullet();
-            } else if (value.startsWith("2:")) {
-                fireLaser();
-            } else if (value === "3") {
-                leftPressed = !leftPressed;
-            } else if (value === "4") {
-                rightPressed = !rightPressed;
-            } else {
-                console.warn('Unknown BLE command:', value);
-            }
+            if (value.startsWith("1:")) shootBullet();
+            else if (value.startsWith("2:")) fireLaser();
+            else if (value === "3") leftPressed = !leftPressed;
+            else if (value === "4") rightPressed = !rightPressed;
         } catch (err) {
             console.error('Error processing BLE notification:', err);
         }
@@ -377,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === "ArrowRight") rightPressed = true;
         if (e.key === "z") fireLaser();
         if (e.key === " ") shootBullet();
+        if (e.key.toLowerCase() === "p") togglePause();
     });
     document.addEventListener('keyup', (e) => {
         if (e.key === "ArrowLeft") leftPressed = false;
