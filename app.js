@@ -262,15 +262,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === Reset Game ===
-    function resetGame() {
-        player.health = 3;
-        score = 0;
-        enemies.length = 0;
-        bullets.length = 0;
-        lasers.length = 0;
-        enemyBullets.length = 0;
-        initEnemies();
+    function restartGame() {
+    gameOver = false;
+
+    // Reset player
+    player.x = CANVAS_WIDTH / 2 - player.width / 2;
+    player.y = CANVAS_HEIGHT - 60;
+    player.dx = 0;
+    player.dy = 0;
+    bullets.length = 0;
+    lasers.length = 0;
+
+    // Reset enemies
+    enemies.length = 0;
+    const ROWS = 3;
+    const COLS = 8;
+    for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+            enemies.push(new Enemy(80 + col * 80, 50 + row * 60));
+        }
     }
+}
+
 
     // === Game Loop ===
     let lastTime = performance.now();
