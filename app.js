@@ -382,6 +382,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // === Mobile Controls ===
+function setupMobileControls() {
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const btnShoot = document.getElementById('btnShoot');
+    const btnLaser = document.getElementById('btnLaser');
+
+    // Movement (hold to move)
+    btnLeft.addEventListener('touchstart', () => { leftPressed = true; });
+    btnLeft.addEventListener('touchend', () => { leftPressed = false; });
+
+    btnRight.addEventListener('touchstart', () => { rightPressed = true; });
+    btnRight.addEventListener('touchend', () => { rightPressed = false; });
+
+    // Shooting
+    btnShoot.addEventListener('touchstart', shootBullet);
+    btnLaser.addEventListener('touchstart', fireLaser);
+}
+
+setupMobileControls();
+
+
     // === Keyboard Controls ===
     document.addEventListener('keydown', (e) => {
         if (e.key === "ArrowLeft") leftPressed = true;
