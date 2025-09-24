@@ -14,6 +14,10 @@ const LASER_COOLDOWN = 10000; // 10s
 let device;
 let characteristic;
 
+// === Movement State (for BLE toggling) ===
+let leftPressed = false;
+let rightPressed = false;
+
 // === Canvas Setup ===
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('gameCanvas');
@@ -35,10 +39,15 @@ document.addEventListener('DOMContentLoaded', () => {
         dx: 0,
         speed: 5,
         health: 3,
-        moveLeft() { this.dx = -this.speed; },
-        moveRight() { this.dx = this.speed; },
-        stopHorizontal() { this.dx = 0; },
         update() {
+            if (leftPressed && !rightPressed) {
+                this.dx = -this.speed;
+            } else if (rightPressed && !leftPressed) {
+                this.dx = this.speed;
+            } else {
+                this.dx = 0;
+            }
+
             this.x += this.dx;
             if (this.x < 0) this.x = 0;
             if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
@@ -48,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillRect(this.x, this.y, this.width, this.height);
             ctx.fillStyle = '#fff';
             ctx.font = '20px Arial';
-            ctx.fillText(`Health: ${this.health}`, CANVAS_WIDTH - 100, 30);
+            ctx.fillText(`Health: ${this.health}`, CANVAS_WIDTH - 120, 30);
         }
     };
 
@@ -142,14 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let c = 0; c < enemyCols; c++) {
                 const x = ENEMY_START_X + c * (enemyWidth + enemySpacingX);
                 const y = ENEMY_START_Y + r * (enemyHeight + enemySpacingY);
-                if (isNaN(x) || isNaN(y)) {
-                    console.error('Invalid enemy position:', { x, y });
-                    continue;
-                }
                 enemies.push({ x, y, width: enemyWidth, height: enemyHeight });
             }
         }
-        console.log(`Spawned ${enemies.length} enemies at positions:`, enemies.map(e => `(${e.x}, ${e.y})`));
     }
 
     // === Enemy Bullets ===
@@ -166,13 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 player.health -= 1;
                 if (player.health <= 0) {
                     alert('Game Over! Score: ' + score);
-                    player.health = 3;
-                    score = 0;
-                    enemies.length = 0;
-                    bullets.length = 0;
-                    lasers.length = 0;
-                    enemyBullets.length = 0;
-                    initEnemies();
+                    resetGame();
                 }
             }
         }
@@ -187,43 +185,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (enemies.length === 0) {
             if (!respawnScheduled) {
                 respawnScheduled = true;
-                console.log('Scheduling enemy respawn');
                 setTimeout(() => {
                     initEnemies();
                     respawnScheduled = false;
-                    console.log('Enemies respawned');
                 }, 1000);
             }
             return;
         }
 
-        if (isNaN(deltaTime) || isNaN(enemyDirection)) {
-            console.error('Invalid deltaTime or enemyDirection:', { deltaTime, enemyDirection });
-            return;
-        }
-
         let shouldDescend = false;
         enemies.forEach(e => {
-            const newX = e.x + enemyDirection * deltaTime;
-            if (isNaN(newX)) {
-                console.error('NaN detected in enemy x update:', { e, enemyDirection, deltaTime });
-                e.x = ENEMY_START_X; // Reset to prevent NaN
-            } else {
-                e.x = newX;
-            }
+            e.x += enemyDirection * deltaTime;
             if (e.x < 0 || e.x + e.width > CANVAS_WIDTH) shouldDescend = true;
         });
         if (shouldDescend) {
             enemyDirection *= -1;
-            enemies.forEach(e => {
-                const newY = e.y + ENEMY_DESCENT_STEP * deltaTime;
-                if (isNaN(newY)) {
-                    console.error('NaN detected in enemy y update:', { e, deltaTime });
-                    e.y = ENEMY_START_Y;
-                } else {
-                    e.y = newY;
-                }
-            });
+            enemies.forEach(e => e.y += ENEMY_DESCENT_STEP * deltaTime);
         }
 
         enemiesToRemoveSet.clear();
@@ -265,14 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // === Draw Enemies ===
     function drawEnemies(ctx) {
         ctx.fillStyle = '#2ecc71';
-        enemies.forEach(e => {
-            if (isNaN(e.x) || isNaN(e.y)) {
-                console.error('Invalid enemy position in draw:', e);
-                return;
-            }
-            ctx.fillRect(e.x, e.y, e.width, e.height);
-            console.log(`Drawing enemy at (${e.x}, ${e.y})`);
-        });
+        enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
     }
 
     // === Collision Detection ===
@@ -291,14 +261,22 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillText('Score: ' + score, 10, 30);
     }
 
+    // === Reset Game ===
+    function resetGame() {
+        player.health = 3;
+        score = 0;
+        enemies.length = 0;
+        bullets.length = 0;
+        lasers.length = 0;
+        enemyBullets.length = 0;
+        initEnemies();
+    }
+
     // === Game Loop ===
-    let lastTime = performance.now(); // Initialize with current time
+    let lastTime = performance.now();
     function gameLoop(timestamp) {
-        let deltaTime = (timestamp - lastTime) / 16.67; // Normalize to ~60 FPS
-        if (isNaN(deltaTime) || !isFinite(deltaTime)) {
-            console.warn('Invalid deltaTime, skipping frame:', deltaTime);
-            deltaTime = 1; // Fallback to avoid NaN propagation
-        }
+        let deltaTime = (timestamp - lastTime) / 16.67;
+        if (!isFinite(deltaTime)) deltaTime = 1;
         lastTime = timestamp;
 
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -319,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     createBulletPool(50);
     initEnemies();
-    console.log('Initial enemies spawned');
     requestAnimationFrame(gameLoop);
 
     // === BLE Connection ===
@@ -354,20 +331,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleNotification(event) {
         try {
             const value = new TextDecoder().decode(event.target.value);
-            if (typeof value !== 'string') {
-                console.error('Invalid BLE data received:', value);
-                return;
-            }
+
             if (value.startsWith("1:")) {
-                player.moveLeft();
-                setTimeout(() => player.stopHorizontal(), 150);
-            } else if (value.startsWith("2:")) {
-                player.moveRight();
-                setTimeout(() => player.stopHorizontal(), 150);
-            } else if (value === "3") {
-                fireLaser();
-            } else if (value === "4") {
                 shootBullet();
+            } else if (value.startsWith("2:")) {
+                fireLaser();
+            } else if (value === "3") {
+                leftPressed = !leftPressed;
+            } else if (value === "4") {
+                rightPressed = !rightPressed;
             } else {
                 console.warn('Unknown BLE command:', value);
             }
@@ -376,16 +348,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === Keyboard Controls ===
+    // === Keyboard Controls (still works) ===
     document.addEventListener('keydown', (e) => {
-        switch (e.key) {
-            case "ArrowLeft": player.moveLeft(); break;
-            case "ArrowRight": player.moveRight(); break;
-            case "z": fireLaser(); break;
-            case " ": shootBullet(); break;
-        }
+        if (e.key === "ArrowLeft") leftPressed = true;
+        if (e.key === "ArrowRight") rightPressed = true;
+        if (e.key === "z") fireLaser();
+        if (e.key === " ") shootBullet();
     });
     document.addEventListener('keyup', (e) => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight") player.stopHorizontal();
+        if (e.key === "ArrowLeft") leftPressed = false;
+        if (e.key === "ArrowRight") rightPressed = false;
     });
 });
