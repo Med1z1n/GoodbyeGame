@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 player.health -= 1;
                 if (player.health <= 0) {
                     alert('Game Over! Score: ' + score);
-                    resetGame();
+                    restartGame();
                 }
             }
         }
