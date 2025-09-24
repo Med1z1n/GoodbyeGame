@@ -28,6 +28,22 @@ h1 {
     background-color: #2980b9;
 }
 
+#pauseButton {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background-color: #3498db;
+    color: white;
+    font-family: 'Patrick Hand SC', cursive;
+}
+
+#pauseButton:hover {
+    background-color: #2980b9;
+}
+
 #gameCanvas {
     display: block;
     margin: 20px auto;
