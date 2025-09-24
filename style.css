@@ -52,6 +52,26 @@ h1 {
     background: #2980b9;
 }
 
+#backToMenuButton {
+    font-family: 'Patrick Hand SC', cursive;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 10px 20px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #e67e22;
+    color: white;
+    z-index: 10;
+}
+
+#backToMenuButton:hover {
+    background: #d35400;
+}
+
+
 #pauseButton {
     margin: 10px;
     padding: 10px 20px;
