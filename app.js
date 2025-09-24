@@ -6,9 +6,26 @@ const CANVAS_HEIGHT = canvas.height;
 // === Game Hub ===
 let currentGame = null;
 
+const backToMenuButton = document.getElementById("backToMenuButton");
+
+backToMenuButton.addEventListener("click", () => {
+    // Stop the game loop if needed (you may want a flag)
+    paused = true;
+
+    // Hide game elements
+    document.getElementById("gameCanvas").style.display = "none";
+    document.getElementById("mobileControls").style.display = "none";
+    backToMenuButton.style.display = "none";
+
+    // Show menu
+    document.getElementById("menu").style.display = "flex";
+});
+
+
 function startGame(gameName) {
     document.getElementById("menu").style.display = "none";
     canvas.style.display = "block";
+    backToMenuButton.style.display = "block";
 
     if (currentGame && currentGame.stop) currentGame.stop();
 
