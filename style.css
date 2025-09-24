@@ -37,6 +37,7 @@ h1 {
 }
 
 #menu button {
+    font-family: 'Patrick Hand SC', cursive;
     padding: 15px 30px;
     font-size: 20px;
     border-radius: 10px;
@@ -85,6 +86,7 @@ h1 {
 }
 
 #mobileControls button {
+  font-family: 'Patrick Hand SC', cursive;
   padding: 3vw 6vw;
   font-size: 4vw;
   border-radius: 1vw;
