@@ -1,322 +1,380 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
 const CANVAS_WIDTH = canvas.width;
 const CANVAS_HEIGHT = canvas.height;
 
-// === BLE Setup ===
-const SERVICE_UUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
-const CHAR_UUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
-let device;
-let characteristic;
+// === Game Hub ===
+let currentGame = null;
 
-// === Player ===
-let player = {
-    x: CANVAS_WIDTH / 2 - 20,
-    y: CANVAS_HEIGHT - 60,
-    width: 40,
-    height: 40,
-    speed: 5,
-    health: 3
-};
+function startGame(gameName) {
+    document.getElementById("menu").style.display = "none";
+    canvas.style.display = "block";
 
-// === Game state ===
-let bullets = [];
-let enemyBullets = [];
-let enemies = [];
-let score = 0;
-let gameOver = false;
-let paused = false;
-let wave = 1;
+    if (currentGame && currentGame.stop) currentGame.stop();
 
-// Movement state
-let leftPressed = false;
-let rightPressed = false;
-
-// === Enemy config ===
-let enemyRows = 3;
-let enemyCols = 6;
-let enemySpeedX = 1;
-let enemyDropDistance = 20;
-let enemyShootChance = 0.002;
-
-// === Laser config ===
-const laserCooldown = 5000; // ms
-let lastLaserTime = 0;
-let laserReady = true;
-const laserDuration = 500; // 0.5 seconds
-
-// === Keyboard controls ===
-document.addEventListener("keydown", e => {
-    if (gameOver) return restartGame();
-
-    if (e.key === "ArrowLeft") leftPressed = true;
-    if (e.key === "ArrowRight") rightPressed = true;
-    if (e.key === " " || e.key === "Spacebar") shootBullet();
-    if (e.key === "z" || e.key === "Z") fireLaser();
-    if (e.key === "p" || e.key === "P") paused = !paused;
-});
-
-document.addEventListener("keyup", e => {
-    if (e.key === "ArrowLeft") leftPressed = false;
-    if (e.key === "ArrowRight") rightPressed = false;
-});
-
-// === Mobile controls ===
-function setupMobileControls() {
-    const btnLeft = document.getElementById("btnLeft");
-    const btnRight = document.getElementById("btnRight");
-    const btnShoot = document.getElementById("btnShoot");
-    const btnLaser = document.getElementById("btnLaser");
-
-    btnLeft.addEventListener("touchstart", () => { if(gameOver) restartGame(); else leftPressed = true; });
-    btnLeft.addEventListener("touchend", () => { leftPressed = false; });
-
-    btnRight.addEventListener("touchstart", () => { if(gameOver) restartGame(); else rightPressed = true; });
-    btnRight.addEventListener("touchend", () => { rightPressed = false; });
-
-    btnShoot.addEventListener("touchstart", () => { if(gameOver) restartGame(); else shootBullet(); });
-    btnLaser.addEventListener("touchstart", () => { if(gameOver) restartGame(); else fireLaser(); });
-}
-setupMobileControls();
-
-// === BLE Connection ===
-document.getElementById('connectButton')?.addEventListener('click', async () => {
-    try {
-        device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: "Sienna's Remote" }],
-            optionalServices: [SERVICE_UUID]
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(SERVICE_UUID);
-        characteristic = await service.getCharacteristic(CHAR_UUID);
-        await characteristic.startNotifications();
-        characteristic.addEventListener('characteristicvaluechanged', handleNotification);
-
-        const btn = document.getElementById('connectButton');
-        btn.innerText = "Connected";
-        btn.disabled = true;
-
-        device.addEventListener('gattserverdisconnected', () => {
-            btn.innerText = "Connect to Device";
-            btn.disabled = false;
-            console.log('BLE device disconnected');
-        });
-    } catch (err) {
-        console.error('BLE connection error:', err);
-        alert("Failed to connect: " + err.message);
+    switch(gameName) {
+        case "spaceShooter":
+            currentGame = new SpaceShooter(canvas);
+            break;
+        // add new games here
+        case "placeholder":
+            currentGame = new PlaceholderGame(canvas);
+            break;
     }
-});
 
-function handleNotification(event) {
-    const value = new TextDecoder().decode(event.target.value);
-    if(gameOver) return restartGame();
-
-    if (value.startsWith("1:")) shootBullet();
-    else if (value.startsWith("2:")) fireLaser();
-    else if (value === "3") leftPressed = !leftPressed;
-    else if (value === "4") rightPressed = !rightPressed;
+    currentGame.start();
 }
 
-// === Game functions ===
-function shootBullet() {
-    if(gameOver) return restartGame();
-    bullets.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10, speed: 7, laser: false });
-}
+// === Base Game Class ===
+class SpaceShooter {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.animationFrame = null;
 
-function fireLaser() {
-    if(!laserReady) return;
-    if(gameOver) return restartGame();
+        // BLE
+        this.device = null;
+        this.characteristic = null;
+        this.SERVICE_UUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
+        this.CHAR_UUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
 
-    bullets.push({ 
-        x: player.x + player.width / 2 - 2, 
-        y: 0, 
-        width: 4, 
-        height: player.y, 
-        speed: 0, 
-        laser: true,
-        startTime: Date.now()
-    });
+        // Player
+        this.player = { x: CANVAS_WIDTH/2-20, y: CANVAS_HEIGHT-60, width:40, height:40, speed:5, health:3 };
 
-    laserReady = false;
-    lastLaserTime = Date.now();
-    setTimeout(() => { laserReady = true; }, laserCooldown);
-}
+        // State
+        this.bullets = [];
+        this.enemyBullets = [];
+        this.enemies = [];
+        this.score = 0;
+        this.wave = 1;
+        this.gameOver = false;
+        this.paused = false;
 
-function spawnEnemies() {
-    enemies = [];
-    let startX = 60;
-    let startY = 40;
-    let spacingX = 60;
-    let spacingY = 50;
+        // Movement
+        this.leftPressed = false;
+        this.rightPressed = false;
 
-    for (let r = 0; r < enemyRows; r++) {
-        for (let c = 0; c < enemyCols; c++) {
-            enemies.push({ x: startX + c * spacingX, y: startY + r * spacingY, width: 40, height: 30 });
-        }
+        // Enemy config
+        this.enemyRows = 3;
+        this.enemyCols = 6;
+        this.enemySpeedX = 1;
+        this.enemyDropDistance = 20;
+        this.enemyShootChance = 0.002;
+
+        // Laser
+        this.laserCooldown = 5000;
+        this.laserDuration = 500;
+        this.lastLaserTime = 0;
+        this.laserReady = true;
+
+        this.keydownHandler = this.handleKeyDown.bind(this);
+        this.keyupHandler = this.handleKeyUp.bind(this);
     }
-}
 
-function updateBullets() {
-    const now = Date.now();
-    for (let i = bullets.length - 1; i >= 0; i--) {
-        let b = bullets[i];
+    start() {
+        this.setupControls();
+        this.spawnEnemies();
+        this.gameLoop();
+    }
 
-        if(!b.laser) b.y -= b.speed;
+    stop() {
+        cancelAnimationFrame(this.animationFrame);
+        document.removeEventListener("keydown", this.keydownHandler);
+        document.removeEventListener("keyup", this.keyupHandler);
+    }
 
-        if(b.laser){
-            b.x = player.x + player.width/2 -2;
-            b.height = player.y;
+    setupControls() {
+        document.addEventListener("keydown", this.keydownHandler);
+        document.addEventListener("keyup", this.keyupHandler);
 
-            // Remove laser after 0.5 seconds
-            if(now - b.startTime >= laserDuration){
-                bullets.splice(i, 1);
-                continue;
+        // Mobile buttons
+        const btnLeft = document.getElementById("btnLeft");
+        const btnRight = document.getElementById("btnRight");
+        const btnShoot = document.getElementById("btnShoot");
+        const btnLaser = document.getElementById("btnLaser");
+
+        btnLeft?.addEventListener("touchstart", () => { this.gameOver ? this.restartGame() : this.leftPressed = true; });
+        btnLeft?.addEventListener("touchend", () => { this.leftPressed = false; });
+        btnRight?.addEventListener("touchstart", () => { this.gameOver ? this.restartGame() : this.rightPressed = true; });
+        btnRight?.addEventListener("touchend", () => { this.rightPressed = false; });
+        btnShoot?.addEventListener("touchstart", () => { this.gameOver ? this.restartGame() : this.shootBullet(); });
+        btnLaser?.addEventListener("touchstart", () => { this.gameOver ? this.restartGame() : this.fireLaser(); });
+
+        // BLE Connect
+        document.getElementById('connectButton')?.addEventListener('click', async () => {
+            try {
+                this.device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: "Sienna's Remote" }],
+                    optionalServices: [this.SERVICE_UUID]
+                });
+                const server = await this.device.gatt.connect();
+                const service = await server.getPrimaryService(this.SERVICE_UUID);
+                this.characteristic = await service.getCharacteristic(this.CHAR_UUID);
+                await this.characteristic.startNotifications();
+                this.characteristic.addEventListener('characteristicvaluechanged', this.handleNotification.bind(this));
+
+                const btn = document.getElementById('connectButton');
+                btn.innerText = "Connected";
+                btn.disabled = true;
+
+                this.device.addEventListener('gattserverdisconnected', () => {
+                    btn.innerText = "Connect to Device";
+                    btn.disabled = false;
+                    console.log('BLE disconnected');
+                });
+            } catch (err) {
+                console.error(err);
+                alert("BLE Error: "+err.message);
+            }
+        });
+    }
+
+    handleNotification(event) {
+        const value = new TextDecoder().decode(event.target.value);
+        if(this.gameOver) return this.restartGame();
+
+        if (value.startsWith("1:")) this.shootBullet();
+        else if (value.startsWith("2:")) this.fireLaser();
+        else if (value === "3") this.leftPressed = !this.leftPressed;
+        else if (value === "4") this.rightPressed = !this.rightPressed;
+    }
+
+    handleKeyDown(e) {
+        if(this.gameOver) return this.restartGame();
+        if(e.key === "ArrowLeft") this.leftPressed = true;
+        if(e.key === "ArrowRight") this.rightPressed = true;
+        if(e.key === " " || e.key === "Spacebar") this.shootBullet();
+        if(e.key === "z" || e.key === "Z") this.fireLaser();
+        if(e.key === "p" || e.key === "P") this.paused = !this.paused;
+    }
+
+    handleKeyUp(e) {
+        if(e.key === "ArrowLeft") this.leftPressed = false;
+        if(e.key === "ArrowRight") this.rightPressed = false;
+    }
+
+    shootBullet() {
+        if(this.gameOver) return this.restartGame();
+        this.bullets.push({ x: this.player.x + this.player.width/2 -2, y: this.player.y, width:4, height:10, speed:7, laser:false });
+    }
+
+    fireLaser() {
+        if(!this.laserReady) return;
+        if(this.gameOver) return this.restartGame();
+
+        this.bullets.push({
+            x: this.player.x + this.player.width/2 -2,
+            y: 0,
+            width: 4,
+            height: this.player.y,
+            speed: 0,
+            laser: true,
+            startTime: Date.now()
+        });
+
+        this.laserReady = false;
+        this.lastLaserTime = Date.now();
+        setTimeout(()=>{ this.laserReady = true; }, this.laserCooldown);
+    }
+
+    spawnEnemies() {
+        this.enemies = [];
+        let startX = 60, startY = 40, spacingX = 60, spacingY = 50;
+        for(let r=0;r<this.enemyRows;r++){
+            for(let c=0;c<this.enemyCols;c++){
+                this.enemies.push({ x: startX+c*spacingX, y: startY+r*spacingY, width:40, height:30 });
             }
         }
+    }
 
-        // Collision with enemies
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            let e = enemies[j];
-            if(rectCollision(b, e)){
-                enemies.splice(j,1);
-                score += 10;
-                if(!b.laser){ bullets.splice(i,1); break; } // regular bullets disappear on hit
+    update() {
+        if(this.paused || this.gameOver) return;
+
+        if(this.leftPressed && this.player.x>0) this.player.x -= this.player.speed;
+        if(this.rightPressed && this.player.x+this.player.width<CANVAS_WIDTH) this.player.x += this.player.speed;
+
+        this.updateBullets();
+        this.updateEnemies();
+        this.updateEnemyBullets();
+
+        if(this.enemies.length === 0){
+            this.wave++;
+            this.enemySpeedX += 0.5;
+            this.enemyShootChance += 0.001;
+            this.enemyRows = Math.min(6, this.enemyRows+1);
+            this.spawnEnemies();
+        }
+    }
+
+    updateBullets() {
+        const now = Date.now();
+        for(let i=this.bullets.length-1;i>=0;i--){
+            let b = this.bullets[i];
+            if(!b.laser) b.y -= b.speed;
+
+            if(b.laser){
+                b.x = this.player.x + this.player.width/2 -2;
+                b.height = this.player.y;
+                if(now - b.startTime >= this.laserDuration){
+                    this.bullets.splice(i,1);
+                    continue;
+                }
+            }
+
+            // Collision
+            for(let j=this.enemies.length-1;j>=0;j--){
+                let e = this.enemies[j];
+                if(this.rectCollision(b,e)){
+                    this.enemies.splice(j,1);
+                    this.score += 10;
+                    if(!b.laser){ this.bullets.splice(i,1); break; }
+                }
+            }
+
+            if(!b.laser && b.y + b.height < 0) this.bullets.splice(i,1);
+        }
+    }
+
+    updateEnemies() {
+        let hitEdge = false;
+        for(let e of this.enemies){
+            e.x += this.enemySpeedX;
+            if(Math.random() < this.enemyShootChance) this.enemyBullets.push({x:e.x+e.width/2,y:e.y+e.height,width:4,height:10,speed:3});
+            if(e.x+e.width >= CANVAS_WIDTH || e.x <= 0) hitEdge = true;
+        }
+        if(hitEdge){
+            this.enemySpeedX = -this.enemySpeedX;
+            for(let e of this.enemies){
+                e.y += this.enemyDropDistance;
+                if(e.y+e.height>=CANVAS_HEIGHT) this.gameOver = true;
             }
         }
-
-        // Remove off-screen regular bullets
-        if(!b.laser && b.y + b.height < 0) bullets.splice(i,1);
     }
-}
 
-function updateEnemyBullets(){
-    for(let i=enemyBullets.length-1;i>=0;i--){
-        let b = enemyBullets[i];
-        if(!b){enemyBullets.splice(i,1); continue;}
-        b.y += b.speed;
-        if(b.y>CANVAS_HEIGHT){enemyBullets.splice(i,1); continue;}
-        if(rectCollision(b,player)){
-            enemyBullets.splice(i,1);
-            player.health--;
-            if(player.health<=0) gameOver=true;
+    updateEnemyBullets(){
+        for(let i=this.enemyBullets.length-1;i>=0;i--){
+            let b = this.enemyBullets[i];
+            if(!b){ this.enemyBullets.splice(i,1); continue;}
+            b.y += b.speed;
+            if(b.y>CANVAS_HEIGHT){ this.enemyBullets.splice(i,1); continue;}
+            if(this.rectCollision(b,this.player)){
+                this.enemyBullets.splice(i,1);
+                this.player.health--;
+                if(this.player.health<=0) this.gameOver=true;
+            }
         }
     }
-}
 
-function updateEnemies(){
-    let hitEdge=false;
-    for(let e of enemies){
-        e.x+=enemySpeedX;
-        if(Math.random()<enemyShootChance) enemyBullets.push({x:e.x+e.width/2,y:e.y+e.height,width:4,height:10,speed:3});
-        if(e.x+e.width>=CANVAS_WIDTH || e.x<=0) hitEdge=true;
+    rectCollision(a,b){
+        return a.x<b.x+b.width && a.x+a.width>b.x && a.y<b.y+b.height && a.y+a.height>b.y;
     }
 
-    if(hitEdge){
-        enemySpeedX=-enemySpeedX;
-        for(let e of enemies){
-            e.y+=enemyDropDistance;
-            if(e.y+e.height>=CANVAS_HEIGHT) gameOver=true;
-        }
-    }
-}
-
-function rectCollision(a,b){
-    return a.x<b.x+b.width && a.x+a.width>b.x && a.y<b.y+b.height && a.y+a.height>b.y;
-}
-
-function restartGame(){
-    player.x=CANVAS_WIDTH/2-20;
-    player.y=CANVAS_HEIGHT-60;
-    player.health=3;
-    bullets=[];
-    enemyBullets=[];
-    score=0;
-    wave=1;
-    enemySpeedX=1;
-    enemyShootChance=0.002;
-    gameOver=false;
-    laserReady=true;
-    lastLaserTime=0;
-    spawnEnemies();
-}
-
-function update(){
-    if(paused || gameOver) return;
-    if(leftPressed && player.x>0) player.x-=player.speed;
-    if(rightPressed && player.x+player.width<CANVAS_WIDTH) player.x+=player.speed;
-
-    updateBullets();
-    updateEnemyBullets();
-    updateEnemies();
-
-    if(enemies.length===0){
-        wave++;
-        enemySpeedX+=0.5;
-        enemyShootChance+=0.001;
-        enemyRows = Math.min(6, enemyRows+1);
-        spawnEnemies();
-    }
-}
-
-function draw(){
-    ctx.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
-
-    ctx.fillStyle="green";
-    ctx.fillRect(player.x,player.y,player.width,player.height);
-
-    ctx.fillStyle="yellow";
-    bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.width,b.height));
-
-    ctx.fillStyle="red";
-    enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.width,e.height));
-
-    ctx.fillStyle="white";
-    enemyBullets.forEach(b=>ctx.fillRect(b.x,b.y,b.width,b.height));
-
-    ctx.fillStyle="black";
-    ctx.font="20px Arial";
-    ctx.fillText("Score: "+score,10,20);
-    ctx.fillText("Health: "+player.health,10,40);
-    ctx.fillText("Wave: "+wave,10,60);
-
-    // Laser cooldown bar
-    ctx.fillText("Laser:",10,80);
-    ctx.strokeStyle="black";
-    ctx.strokeRect(70,65,100,15);
-    if(laserReady){
-        ctx.fillStyle="blue";
-        ctx.fillRect(70,65,100,15);
-    } else {
-        let progress=Math.min(1,(Date.now()-lastLaserTime)/laserCooldown);
-        ctx.fillStyle="blue";
-        ctx.fillRect(70,65,100*progress,15);
+    restartGame(){
+        this.player.x = CANVAS_WIDTH/2-20;
+        this.player.y = CANVAS_HEIGHT-60;
+        this.player.health = 3;
+        this.bullets = [];
+        this.enemyBullets = [];
+        this.score = 0;
+        this.wave = 1;
+        this.enemySpeedX = 1;
+        this.enemyShootChance = 0.002;
+        this.gameOver = false;
+        this.laserReady = true;
+        this.lastLaserTime = 0;
+        this.spawnEnemies();
     }
 
-    if(paused){
-        ctx.fillStyle="rgba(0,0,0,0.5)";
-        ctx.fillRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
+    draw() {
+        const ctx = this.ctx;
+        ctx.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
+
+        // Player
+        ctx.fillStyle="green";
+        ctx.fillRect(this.player.x,this.player.y,this.player.width,this.player.height);
+
+        // Bullets
+        ctx.fillStyle="yellow";
+        this.bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.width,b.height));
+
+        // Enemies
+        ctx.fillStyle="red";
+        this.enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.width,e.height));
+
+        // Enemy bullets
         ctx.fillStyle="white";
-        ctx.font="40px Arial";
-        ctx.fillText("PAUSED",CANVAS_WIDTH/2-80,CANVAS_HEIGHT/2);
-    }
+        this.enemyBullets.forEach(b=>ctx.fillRect(b.x,b.y,b.width,b.height));
 
-    if(gameOver){
-        ctx.fillStyle="rgba(0,0,0,0.5)";
-        ctx.fillRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
-        ctx.fillStyle="white";
-        ctx.font="40px Arial";
-        ctx.fillText("GAME OVER",CANVAS_WIDTH/2-120,CANVAS_HEIGHT/2);
+        // HUD
+        ctx.fillStyle="black";
         ctx.font="20px Arial";
-        ctx.fillText("Press any button to Restart",CANVAS_WIDTH/2-120,CANVAS_HEIGHT/2+40);
+        ctx.fillText("Score: "+this.score,10,20);
+        ctx.fillText("Health: "+this.player.health,10,40);
+        ctx.fillText("Wave: "+this.wave,10,60);
+
+        // Laser bar
+        ctx.fillText("Laser:",10,80);
+        ctx.strokeStyle="black";
+        ctx.strokeRect(70,65,100,15);
+        if(this.laserReady){
+            ctx.fillStyle="blue";
+            ctx.fillRect(70,65,100,15);
+        } else {
+            let progress=Math.min(1,(Date.now()-this.lastLaserTime)/this.laserCooldown);
+            ctx.fillStyle="blue";
+            ctx.fillRect(70,65,100*progress,15);
+        }
+
+        // Paused/Game Over
+        if(this.paused){
+            ctx.fillStyle="rgba(0,0,0,0.5)";
+            ctx.fillRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
+            ctx.fillStyle="white";
+            ctx.font="40px Arial";
+            ctx.fillText("PAUSED",CANVAS_WIDTH/2-80,CANVAS_HEIGHT/2);
+        }
+        if(this.gameOver){
+            ctx.fillStyle="rgba(0,0,0,0.5)";
+            ctx.fillRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
+            ctx.fillStyle="white";
+            ctx.font="40px Arial";
+            ctx.fillText("GAME OVER",CANVAS_WIDTH/2-120,CANVAS_HEIGHT/2);
+            ctx.font="20px Arial";
+            ctx.fillText("Press any button to Restart",CANVAS_WIDTH/2-120,CANVAS_HEIGHT/2+40);
+        }
+    }
+
+    gameLoop() {
+        this.update();
+        this.draw();
+        this.animationFrame = requestAnimationFrame(this.gameLoop.bind(this));
     }
 }
 
-function gameLoop(){
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
+// === Placeholder Game Example ===
+class PlaceholderGame {
+    constructor(canvas){
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.animationFrame = null;
+    }
+    start(){
+        this.gameLoop();
+    }
+    stop(){
+        cancelAnimationFrame(this.animationFrame);
+    }
+    draw(){
+        this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+        this.ctx.fillStyle="purple";
+        this.ctx.font="30px Arial";
+        this.ctx.fillText("New Game Here",100,100);
+        this.animationFrame = requestAnimationFrame(this.draw.bind(this));
+    }
+    gameLoop(){ this.draw(); }
 }
 
-restartGame();
-gameLoop();
+// === Initialize Menu ===
+document.addEventListener("DOMContentLoaded", () => {
+    canvas.style.display = "none";
+});
