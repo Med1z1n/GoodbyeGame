@@ -7,11 +7,6 @@ const CANVAS_HEIGHT = canvas.height;
 let currentGame = null;
 
 const backToMenuButton = document.getElementById("backToMenuButton");
-const pauseGameButton = document.getElementById("pauseButton");
-
-pauseGameButton.addEventListener("click", () => {
-    paused = true;
-});
 
 backToMenuButton.addEventListener("click", () => {
     // Stop the game loop if needed (you may want a flag)
@@ -115,6 +110,11 @@ class SpaceShooter {
         const btnRight = document.getElementById("btnRight");
         const btnShoot = document.getElementById("btnShoot");
         const btnLaser = document.getElementById("btnLaser");
+        const pauseGameButton = document.getElementById("pauseButton");
+
+        pauseGameButton.addEventListener("click", () => {
+            paused = true;
+        });
 
         btnLeft?.addEventListener("touchstart", () => { this.gameOver ? this.restartGame() : this.leftPressed = true; });
         btnLeft?.addEventListener("touchend", () => { this.leftPressed = false; });
