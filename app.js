@@ -44,6 +44,7 @@ let enemyShootChance = 0.002;
 const laserCooldown = 5000; // ms
 let lastLaserTime = 0;
 let laserReady = true;
+const laserDuration = 500; // 0.5 seconds
 
 // === Keyboard controls ===
 document.addEventListener("keydown", e => {
@@ -120,14 +121,22 @@ function handleNotification(event) {
 // === Game functions ===
 function shootBullet() {
     if(gameOver) return restartGame();
-    bullets.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10, speed: 7 });
+    bullets.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 4, height: 10, speed: 7, laser: false });
 }
 
 function fireLaser() {
     if(!laserReady) return;
     if(gameOver) return restartGame();
 
-    bullets.push({ x: player.x + player.width / 2 - 2, y: 0, width: 4, height: player.y, speed: 0, laser: true });
+    bullets.push({ 
+        x: player.x + player.width / 2 - 2, 
+        y: 0, 
+        width: 4, 
+        height: player.y, 
+        speed: 0, 
+        laser: true,
+        startTime: Date.now()
+    });
 
     laserReady = false;
     lastLaserTime = Date.now();
@@ -149,34 +158,35 @@ function spawnEnemies() {
 }
 
 function updateBullets() {
+    const now = Date.now();
     for (let i = bullets.length - 1; i >= 0; i--) {
         let b = bullets[i];
+
         if(!b.laser) b.y -= b.speed;
 
-        // Laser follows player
         if(b.laser){
             b.x = player.x + player.width/2 -2;
             b.height = player.y;
-        }
 
-        // Remove off-screen
-        if(!b.laser && b.y + b.height < 0){
-            bullets.splice(i,1);
-            continue;
-        }
-
-        // Collision with enemies - laser hits all
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            let e = enemies[j];
-            if(rectCollision(b, e)){
-                if(!b.laser) { bullets.splice(i,1); break; }
-                enemies.splice(j,1);
-                score += 10;
+            // Remove laser after 0.5 seconds
+            if(now - b.startTime >= laserDuration){
+                bullets.splice(i, 1);
+                continue;
             }
         }
 
-        // Remove laser when cooldown ready
-        if(b.laser && laserReady) bullets.splice(i,1);
+        // Collision with enemies
+        for (let j = enemies.length - 1; j >= 0; j--) {
+            let e = enemies[j];
+            if(rectCollision(b, e)){
+                enemies.splice(j,1);
+                score += 10;
+                if(!b.laser){ bullets.splice(i,1); break; } // regular bullets disappear on hit
+            }
+        }
+
+        // Remove off-screen regular bullets
+        if(!b.laser && b.y + b.height < 0) bullets.splice(i,1);
     }
 }
 
