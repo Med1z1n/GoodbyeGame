@@ -84,7 +84,7 @@ setupMobileControls();
 document.getElementById('connectButton')?.addEventListener('click', async () => {
     try {
         device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'Cycler' }],
+            filters: [{ name: "Sienna's Remote" }],
             optionalServices: [SERVICE_UUID]
         });
         const server = await device.gatt.connect();
