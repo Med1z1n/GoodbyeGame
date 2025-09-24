@@ -50,3 +50,30 @@ h1 {
     background-color: #333;
     border: 2px solid #fff;
 }
+
+#mobileControls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#mobileControls button {
+  padding: 15px 25px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+#btnShoot {
+  background: #e74c3c;
+  color: #fff;
+}
+
+#btnLaser {
+  background: #3498db;
+  color: #fff;
+}
+
