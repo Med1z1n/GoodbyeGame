@@ -208,16 +208,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let shouldDescend = false;
+        // Check if any enemy hits edge
+        let hitEdge = enemies.some(e =>
+            e.x < 0 || e.x + e.width > CANVAS_WIDTH
+        );
+
         enemies.forEach(e => {
             e.x += enemyDirection * deltaTime;
-            if (e.x < 0 || e.x + e.width > CANVAS_WIDTH) shouldDescend = true;
+
+            // Game over if enemy reaches bottom
+            if (e.y + e.height >= CANVAS_HEIGHT) {
+                alert('Game Over! Enemies invaded. Score: ' + score);
+                restartGame();
+                return;
+            }
         });
-        if (shouldDescend) {
+
+        if (hitEdge) {
             enemyDirection *= -1;
             enemies.forEach(e => e.y += ENEMY_DESCENT_STEP * deltaTime);
         }
 
+        // Collision with bullets/lasers
         enemiesToRemoveSet.clear();
         bullets.forEach((b, bi) => {
             if (!b.active) return;
@@ -241,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         Array.from(enemiesToRemoveSet).sort((a, b) => b - a).forEach(i => enemies.splice(i, 1));
 
+        // Enemy shooting
         enemies.forEach(e => {
             const shootChance = BASE_ENEMY_SHOOT_PROB + waveNumber * 0.001;
             if (Math.random() < shootChance) {
@@ -383,26 +396,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === Mobile Controls ===
-function setupMobileControls() {
-    const btnLeft = document.getElementById('btnLeft');
-    const btnRight = document.getElementById('btnRight');
-    const btnShoot = document.getElementById('btnShoot');
-    const btnLaser = document.getElementById('btnLaser');
+    function setupMobileControls() {
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+        const btnShoot = document.getElementById('btnShoot');
+        const btnLaser = document.getElementById('btnLaser');
 
-    // Movement (hold to move)
-    btnLeft.addEventListener('touchstart', () => { leftPressed = true; });
-    btnLeft.addEventListener('touchend', () => { leftPressed = false; });
+        btnLeft.addEventListener('touchstart', () => { leftPressed = true; });
+        btnLeft.addEventListener('touchend', () => { leftPressed = false; });
 
-    btnRight.addEventListener('touchstart', () => { rightPressed = true; });
-    btnRight.addEventListener('touchend', () => { rightPressed = false; });
+        btnRight.addEventListener('touchstart', () => { rightPressed = true; });
+        btnRight.addEventListener('touchend', () => { rightPressed = false; });
 
-    // Shooting
-    btnShoot.addEventListener('touchstart', shootBullet);
-    btnLaser.addEventListener('touchstart', fireLaser);
-}
-
-setupMobileControls();
-
+        btnShoot.addEventListener('touchstart', shootBullet);
+        btnLaser.addEventListener('touchstart', fireLaser);
+    }
+    setupMobileControls();
 
     // === Keyboard Controls ===
     document.addEventListener('keydown', (e) => {
