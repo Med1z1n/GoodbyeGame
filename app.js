@@ -160,12 +160,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const enemyBullets = [];
     function updateEnemyBullets() {
         for (let i = enemyBullets.length - 1; i >= 0; i--) {
-            enemyBullets[i].y += enemyBullets[i].speed;
-            if (enemyBullets[i].y > CANVAS_HEIGHT) {
+            const bullet = enemyBullets[i];
+            if (!bullet) {
                 enemyBullets.splice(i, 1);
                 continue;
             }
-            if (rectCollision(enemyBullets[i], player)) {
+
+            bullet.y += bullet.speed;
+            if (bullet.y > CANVAS_HEIGHT) {
+                enemyBullets.splice(i, 1);
+                continue;
+            }
+            if (rectCollision(bullet, player)) {
                 enemyBullets.splice(i, 1);
                 player.health -= 1;
                 if (player.health <= 0) {
@@ -262,37 +268,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === Reset Game ===
-    // === Reset Game ===
-function restartGame() {
-    // Keep same player object (don't recreate it) so .update/.draw still work
-    player.x = CANVAS_WIDTH / 2 - player.width / 2;
-    player.y = CANVAS_HEIGHT - 60;
-    player.dx = 0;
-    player.health = 3;
+    function restartGame() {
+        // Reset player
+        player.x = CANVAS_WIDTH / 2 - player.width / 2;
+        player.y = CANVAS_HEIGHT - 60;
+        player.dx = 0;
+        player.health = 3;
 
-    // Reset input state
-    leftPressed = false;
-    rightPressed = false;
+        // Reset input state
+        leftPressed = false;
+        rightPressed = false;
 
-    // Clear projectiles and enemy bullets
-    bullets.length = 0;
-    // Note: bulletPool stays (object-pooling), we just clear active bullets list
-    lasers.length = 0;
-    enemyBullets.length = 0;
+        // Clear projectiles
+        bullets.length = 0;
+        lasers.length = 0;
+        enemyBullets.length = 0;
 
-    // Reset score / laser cooldown / enemy direction
-    score = 0;
-    lastLaserTime = 0;
-    enemyDirection = ENEMY_SPEED;
-    respawnScheduled = false;
-    enemiesToRemoveSet.clear();
+        // Reset globals
+        score = 0;
+        lastLaserTime = 0;
+        enemyDirection = ENEMY_SPEED;
+        respawnScheduled = false;
+        enemiesToRemoveSet.clear();
 
-    // Clear and re-init enemies using your existing initEnemies() which creates plain objects
-    enemies.length = 0;
-    initEnemies();
-}
-
-
+        // Re-init enemies
+        initEnemies();
+    }
 
     // === Game Loop ===
     let lastTime = performance.now();
@@ -370,7 +371,7 @@ function restartGame() {
         }
     }
 
-    // === Keyboard Controls (still works) ===
+    // === Keyboard Controls ===
     document.addEventListener('keydown', (e) => {
         if (e.key === "ArrowLeft") leftPressed = true;
         if (e.key === "ArrowRight") rightPressed = true;
