@@ -45,8 +45,10 @@ h1 {
 }
 
 #gameCanvas {
+    width: 100vw;
+    height: auto;
     display: block;
-    margin: 20px auto;
+    margin: 0 auto;
     background-color: #333;
     border: 2px solid #fff;
 }
