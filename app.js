@@ -262,27 +262,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === Reset Game ===
-    function restartGame() {
-    gameOver = false;
-
-    // Reset player
+    // === Reset Game ===
+function restartGame() {
+    // Keep same player object (don't recreate it) so .update/.draw still work
     player.x = CANVAS_WIDTH / 2 - player.width / 2;
     player.y = CANVAS_HEIGHT - 60;
     player.dx = 0;
-    player.dy = 0;
-    bullets.length = 0;
-    lasers.length = 0;
+    player.health = 3;
 
-    // Reset enemies
+    // Reset input state
+    leftPressed = false;
+    rightPressed = false;
+
+    // Clear projectiles and enemy bullets
+    bullets.length = 0;
+    // Note: bulletPool stays (object-pooling), we just clear active bullets list
+    lasers.length = 0;
+    enemyBullets.length = 0;
+
+    // Reset score / laser cooldown / enemy direction
+    score = 0;
+    lastLaserTime = 0;
+    enemyDirection = ENEMY_SPEED;
+    respawnScheduled = false;
+    enemiesToRemoveSet.clear();
+
+    // Clear and re-init enemies using your existing initEnemies() which creates plain objects
     enemies.length = 0;
-    const ROWS = 3;
-    const COLS = 8;
-    for (let row = 0; row < ROWS; row++) {
-        for (let col = 0; col < COLS; col++) {
-            enemies.push(new Enemy(80 + col * 80, 50 + row * 60));
-        }
-    }
+    initEnemies();
 }
+
 
 
     // === Game Loop ===
