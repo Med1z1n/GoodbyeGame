@@ -113,7 +113,7 @@ class SpaceShooter {
         const pauseGameButton = document.getElementById("pauseButton");
 
         pauseGameButton.addEventListener("click", () => {
-            paused = true;
+            this.paused = true;
         });
 
         btnLeft?.addEventListener("touchstart", () => { this.gameOver ? this.restartGame() : this.leftPressed = true; });
