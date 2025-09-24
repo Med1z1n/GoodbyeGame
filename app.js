@@ -34,12 +34,17 @@ let enemySpeedX = 1;
 let enemyDropDistance = 20;
 let enemyShootChance = 0.002;
 
+// === Laser cooldown ===
+let laserReady = true;
+let laserCooldown = 5000; // 5 seconds
+let lastLaserTime = 0;
+
 // === Keyboard controls ===
 document.addEventListener("keydown", e => {
     if (e.key === "ArrowLeft") leftPressed = true;
     if (e.key === "ArrowRight") rightPressed = true;
     if (e.key === " " || e.key === "Spacebar") shootBullet();
-    if (e.key === "l" || e.key === "L") fireLaser();
+    if (e.key === "z" || e.key === "Z") fireLaser();  // <-- changed from L to Z
     if (e.key === "p" || e.key === "P") paused = !paused;
 });
 
@@ -72,7 +77,14 @@ function shootBullet() {
 }
 
 function fireLaser() {
+    let now = Date.now();
+    if (!laserReady) return;
+
     bullets.push({ x: player.x + player.width / 2 - 2, y: 0, width: 4, height: player.y, speed: 0, laser: true });
+
+    laserReady = false;
+    lastLaserTime = now;
+    setTimeout(() => { laserReady = true; }, laserCooldown);
 }
 
 function spawnEnemies() {
@@ -190,6 +202,9 @@ function restartGame() {
     enemyShootChance = 0.002;
     gameOver = false;
 
+    laserReady = true;
+    lastLaserTime = 0;
+
     spawnEnemies();
 }
 
@@ -239,6 +254,19 @@ function draw() {
     ctx.fillText("Score: " + score, 10, 20);
     ctx.fillText("Health: " + player.health, 10, 40);
     ctx.fillText("Wave: " + wave, 10, 60);
+
+    // Laser cooldown bar
+    ctx.fillText("Laser:", 10, 80);
+    ctx.strokeStyle = "black";
+    ctx.strokeRect(70, 65, 100, 15);
+    if (laserReady) {
+        ctx.fillStyle = "blue";
+        ctx.fillRect(70, 65, 100, 15);
+    } else {
+        let progress = Math.min(1, (Date.now() - lastLaserTime) / laserCooldown);
+        ctx.fillStyle = "blue";
+        ctx.fillRect(70, 65, 100 * progress, 15);
+    }
 
     if (paused) {
         ctx.fillStyle = "rgba(0,0,0,0.5)";
