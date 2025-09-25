@@ -305,6 +305,8 @@ class SpaceShooter {
         this.gameOver = false;
         this.laserReady = true;
         this.lastLaserTime = 0;
+        this.leftPressed = false;
+        this.rightPressed = false;
         this.spawnEnemies();
     }
 
