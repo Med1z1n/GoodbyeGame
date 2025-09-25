@@ -8,6 +8,18 @@ let currentGame = null;
 
 const backToMenuButton = document.getElementById("backToMenuButton");
 
+// don't show mobile controls on not touch screen devices.
+function isTouchDevice() {
+  return (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const controls = document.getElementById("touchControls");
+  if (!isTouchDevice()) {
+    controls.style.display = "none"; // hide if not a touchscreen
+  }
+});
+
 backToMenuButton.addEventListener("click", () => {
     // Stop the game loop if needed (you may want a flag)
     paused = true;
