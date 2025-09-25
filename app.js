@@ -14,7 +14,7 @@ function isTouchDevice() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  const controls = document.getElementById("touchControls");
+  const controls = document.getElementById("mobileControls");
   if (!isTouchDevice()) {
     controls.style.display = "none"; // hide if not a touchscreen
   }
