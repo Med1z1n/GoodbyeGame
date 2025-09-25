@@ -38,7 +38,7 @@ function startGame(gameName) {
     document.getElementById("menu").style.display = "none";
     canvas.style.display = "block";
     backToMenuButton.style.display = "block";
-    if (isTouchDevice) {
+    if (isTouchDevice()) {
       document.getElementById("mobileControls").style.display = "block";
     }
     if (currentGame && currentGame.stop) currentGame.stop();
