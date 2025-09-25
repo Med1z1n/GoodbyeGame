@@ -118,7 +118,7 @@ h1 {
   min-height: 50px;
 }
 
-@media (hover: none) and (pointer: coarse) {
+/* @media (hover: none) and (pointer: coarse) {
   .mobileControls {
     display: block;
   }
@@ -128,7 +128,7 @@ h1 {
   .mobileControls {
     display: none;
   }
-}
+} */
 
 #btnShoot {
   background: #e74c3c;
