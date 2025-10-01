@@ -28,6 +28,7 @@ backToMenuButton.addEventListener("click", () => {
     document.getElementById("gameCanvas").style.display = "none";
     document.getElementById("mobileControls").style.display = "none";
     document.getElementById("snakeControls").style.display = "none";
+    document.getElementById("pongControls").style.display = "none";
     backToMenuButton.style.display = "none";
 
     // Show menu
@@ -52,6 +53,10 @@ function startGame(gameName) {
 
         case "Snake":
           currentGame = new SnakeGame(canvas);
+          break;
+
+        case "Pong":
+          currentGame = new PongGame(canvas);
           break;
     }
 
@@ -575,6 +580,210 @@ class SnakeGame {
         this.paused = false;
         clearInterval(this.gameLoop);
         this.gameLoop = setInterval(() => this.update(), 150);
+    }
+}
+
+class PongGame {
+    constructor(canvas, backToMenu) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.backToMenu = backToMenu;
+
+        // Game objects
+        this.ball = { x: canvas.width / 2, y: canvas.height / 2, vx: 4, vy: 2, size: 10 };
+        this.paddleHeight = 60;
+        this.paddleWidth = 10;
+        this.paddleSpeed = 20;
+
+        this.leftPaddle = { x: 10, y: canvas.height / 2 - this.paddleHeight / 2 };
+        this.rightPaddle = { x: canvas.width - 20, y: canvas.height / 2 - this.paddleHeight / 2 };
+
+        this.leftScore = 0;
+        this.rightScore = 0;
+        this.maxScore = 10;
+
+        this.paused = false;
+        this.gameOver = false;
+
+        // BLE setup
+        this.device = null;
+        this.characteristic = null;
+        this.SERVICE_UUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
+        this.CHAR_UUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
+
+        if (isTouchDevice()) {
+            document.getElementById("pongControls").style.display = "block";
+        }
+
+        this.initControls();
+        this.gameLoop = setInterval(() => this.update(), 30);
+    }
+
+    initControls() {
+        // === Keyboard ===
+        document.addEventListener("keydown", (e) => {
+            if (this.gameOver) return this.restartGame();
+
+            if (e.key === "w") this.movePaddle(this.leftPaddle, -this.paddleSpeed);
+            else if (e.key === "s") this.movePaddle(this.leftPaddle, this.paddleSpeed);
+            else if (e.key === "ArrowUp") this.movePaddle(this.rightPaddle, -this.paddleSpeed);
+            else if (e.key === "ArrowDown") this.movePaddle(this.rightPaddle, this.paddleSpeed);
+            else if (e.key === "p") this.paused = !this.paused;
+        });
+
+        // === Touch ===
+        document.getElementById("LbtnUp")?.addEventListener("click", () => this.movePaddle(this.leftPaddle, -this.paddleSpeed));
+        document.getElementById("LbtnDown")?.addEventListener("click", () => this.movePaddle(this.leftPaddle, this.paddleSpeed));
+        document.getElementById("RbtnUp")?.addEventListener("click", () => this.movePaddle(this.rightPaddle, -this.paddleSpeed));
+        document.getElementById("RbtnDown")?.addEventListener("click", () => this.movePaddle(this.rightPaddle, this.paddleSpeed));
+
+        // === BLE ===
+        document.getElementById('connectButton')?.addEventListener('click', async () => {
+            try {
+                this.device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: "Sienna's Remote" }],
+                    optionalServices: [this.SERVICE_UUID]
+                });
+                const server = await this.device.gatt.connect();
+                const service = await server.getPrimaryService(this.SERVICE_UUID);
+                this.characteristic = await service.getCharacteristic(this.CHAR_UUID);
+                await this.characteristic.startNotifications();
+                this.characteristic.addEventListener('characteristicvaluechanged', this.handleNotification.bind(this));
+
+                const btn = document.getElementById('connectButton');
+                btn.innerText = "Connected";
+                btn.disabled = true;
+
+                this.device.addEventListener('gattserverdisconnected', () => {
+                    btn.innerText = "Connect to Device";
+                    btn.disabled = false;
+                    console.log('BLE disconnected');
+                });
+            } catch (err) {
+                console.error(err);
+                alert("BLE Error: " + err.message);
+            }
+        });
+
+       const pauseGameButton = document.getElementById("pauseButton");
+
+        pauseGameButton.addEventListener("click", () => {
+            this.paused = !this.paused;
+        });
+    }
+
+    handleNotification(event) {
+        const value = new TextDecoder().decode(event.target.value);
+        if (this.gameOver) return this.restartGame();
+
+        if (value.startsWith("1:") this.movePaddle(this.leftPaddle, -this.paddleSpeed);  // Left up
+        else if (value.startsWith("2:") this.movePaddle(this.leftPaddle, this.paddleSpeed); // Left down
+        else if (value === "2") this.movePaddle(this.rightPaddle, -this.paddleSpeed); // Right up
+        else if (value === "4") this.movePaddle(this.rightPaddle, this.paddleSpeed); // Right down
+    }
+
+    movePaddle(paddle, dy) {
+        paddle.y += dy;
+        if (paddle.y < 0) paddle.y = 0;
+        if (paddle.y + this.paddleHeight > this.canvas.height) {
+            paddle.y = this.canvas.height - this.paddleHeight;
+        }
+    }
+
+    update() {
+        if (this.paused || this.gameOver) return;
+
+        // Ball movement
+        this.ball.x += this.ball.vx;
+        this.ball.y += this.ball.vy;
+
+        // Bounce top/bottom
+        if (this.ball.y <= 0 || this.ball.y + this.ball.size >= this.canvas.height) {
+            this.ball.vy *= -1;
+        }
+
+        // Paddle collision
+        if (
+            this.ball.x <= this.leftPaddle.x + this.paddleWidth &&
+            this.ball.y + this.ball.size >= this.leftPaddle.y &&
+            this.ball.y <= this.leftPaddle.y + this.paddleHeight
+        ) {
+            this.ball.vx *= -1;
+            this.ball.x = this.leftPaddle.x + this.paddleWidth; // prevent stuck
+        }
+
+        if (
+            this.ball.x + this.ball.size >= this.rightPaddle.x &&
+            this.ball.y + this.ball.size >= this.rightPaddle.y &&
+            this.ball.y <= this.rightPaddle.y + this.paddleHeight
+        ) {
+            this.ball.vx *= -1;
+            this.ball.x = this.rightPaddle.x - this.ball.size; // prevent stuck
+        }
+
+        // Score check
+        if (this.ball.x <= 0) {
+            this.rightScore++;
+            this.resetBall();
+        }
+        if (this.ball.x + this.ball.size >= this.canvas.width) {
+            this.leftScore++;
+            this.resetBall();
+        }
+
+        if (this.leftScore >= this.maxScore || this.rightScore >= this.maxScore) {
+            this.endGame();
+        }
+
+        this.draw();
+    }
+
+    resetBall() {
+        this.ball.x = this.canvas.width / 2;
+        this.ball.y = this.canvas.height / 2;
+        this.ball.vx = Math.random() > 0.5 ? 4 : -4;
+        this.ball.vy = (Math.random() > 0.5 ? 2 : -2);
+    }
+
+    draw() {
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Paddles
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(this.leftPaddle.x, this.leftPaddle.y, this.paddleWidth, this.paddleHeight);
+        this.ctx.fillRect(this.rightPaddle.x, this.rightPaddle.y, this.paddleWidth, this.paddleHeight);
+
+        // Ball
+        this.ctx.fillRect(this.ball.x, this.ball.y, this.ball.size, this.ball.size);
+
+        // Score
+        this.ctx.font = "20px Arial";
+        this.ctx.fillText(this.leftScore, this.canvas.width / 4, 20);
+        this.ctx.fillText(this.rightScore, (this.canvas.width / 4) * 3, 20);
+
+        if (this.paused) {
+            this.ctx.font = "24px Arial";
+            this.ctx.fillText("Paused", this.canvas.width / 2 - 40, this.canvas.height / 2);
+        }
+    }
+
+    endGame() {
+        this.gameOver = true;
+        clearInterval(this.gameLoop);
+        this.ctx.fillStyle = "white";
+        this.ctx.font = "24px Arial";
+        this.ctx.fillText("Game Over - Press Any Key or BLE Button", 50, this.canvas.height / 2);
+    }
+
+    restartGame() {
+        this.leftScore = 0;
+        this.rightScore = 0;
+        this.gameOver = false;
+        this.paused = false;
+        this.resetBall();
+        clearInterval(this.gameLoop);
+        this.gameLoop = setInterval(() => this.update(), 30);
     }
 }
 
