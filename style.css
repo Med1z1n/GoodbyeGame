@@ -89,6 +89,20 @@ h1 {
     background-color: #2980b9;
 }
 
+@media (max-width: 768px) and (orientation: portrait) {
+  #gameCanvas {
+    width: 95vw;     /* fill most of screen width */
+    height: 60vh;    /* keep space for buttons */
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  #gameCanvas {
+    width: 70vw;
+    height: 90vh;
+  }
+}
+
 #gameCanvas {
     width: 45vw;
     height: auto;
@@ -137,18 +151,6 @@ h1 {
   min-width: 80px;
   min-height: 50px;
 }
-
-/* @media (hover: none) and (pointer: coarse) {
-  .mobileControls {
-    display: block;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .mobileControls {
-    display: none;
-  }
-} */
 
 #btnShoot {
   background: #e74c3c;
