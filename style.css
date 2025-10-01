@@ -89,19 +89,19 @@ h1 {
     background-color: #2980b9;
 }
 
-@media (max-width: 768px) and (orientation: portrait) {
+@media (max-width: 768px) {
   #gameCanvas {
     width: 95vw;     /* fill most of screen width */
     height: 60vh;    /* keep space for buttons */
   }
 }
 
-@media (max-width: 768px) and (orientation: landscape) {
+/* @media (max-width: 768px) and (orientation: landscape) {
   #gameCanvas {
     width: 70vw;
     height: 90vh;
   }
-}
+} */
 
 #gameCanvas {
     width: 45vw;
