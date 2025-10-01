@@ -51,6 +51,10 @@ function startGame(gameName) {
         case "placeholder":
             currentGame = new PlaceholderGame(canvas);
             break;
+
+        case "Snake":
+          currentGame = new SnakeGame(canvas);
+          break;
     }
 
     currentGame.start();
@@ -388,6 +392,158 @@ class SpaceShooter {
         this.animationFrame = requestAnimationFrame(this.gameLoop.bind(this));
     }
 }
+
+class SnakeGame {
+    constructor(canvas, backToMenu) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.backToMenu = backToMenu;
+
+        this.gridSize = 20;
+        this.snake = [{ x: 5, y: 5 }];
+        this.direction = { x: 1, y: 0 };
+        this.food = this.randomFood();
+        this.score = 0;
+        this.gameOver = false;
+        this.paused = false;
+
+        this.lastBLEValue = null; // to debounce 3/4 press+release
+
+        this.initControls();
+        this.gameLoop = setInterval(() => this.update(), 150);
+    }
+
+    initControls() {
+        // === Keyboard ===
+        document.addEventListener("keydown", (e) => {
+            if (this.gameOver) return this.restartGame();
+            if (e.key === "ArrowUp") this.changeDirection(0, -1);
+            else if (e.key === "ArrowDown") this.changeDirection(0, 1);
+            else if (e.key === "ArrowLeft") this.changeDirection(-1, 0);
+            else if (e.key === "ArrowRight") this.changeDirection(1, 0);
+            else if (e.key === "p") this.paused = !this.paused;
+        });
+
+        // === Touch buttons (mobile) ===
+        document.getElementById("btnUp")?.addEventListener("click", () => this.changeDirection(0, -1));
+        document.getElementById("btnDown")?.addEventListener("click", () => this.changeDirection(0, 1));
+        document.getElementById("btnLeft")?.addEventListener("click", () => this.changeDirection(-1, 0));
+        document.getElementById("btnRight")?.addEventListener("click", () => this.changeDirection(1, 0));
+
+        // === BLE (connected externally, inject handler) ===
+        if (window.BLECharacteristic) {
+            window.BLECharacteristic.addEventListener("characteristicvaluechanged", (event) =>
+                this.handleNotification(event)
+            );
+        }
+    }
+
+    handleNotification(event) {
+        const value = new TextDecoder().decode(event.target.value).trim();
+        if (this.gameOver) return this.restartGame();
+
+        // Prevent duplicate press+release events for 3/4
+        if (value === this.lastBLEValue) return;
+        this.lastBLEValue = value;
+        setTimeout(() => { this.lastBLEValue = null; }, 100);
+
+        if (value.startsWith("1:")) this.changeDirection(-1, 0); // left
+        else if (value.startsWith("2:")) this.changeDirection(1, 0); // right
+        else if (value === "3") this.changeDirection(0, -1); // up
+        else if (value === "4") this.changeDirection(0, 1);  // down
+    }
+
+    changeDirection(x, y) {
+        // Prevent reversing into self
+        if (this.snake.length > 1 && this.snake[0].x + x === this.snake[1].x && this.snake[0].y + y === this.snake[1].y) {
+            return;
+        }
+        this.direction = { x, y };
+    }
+
+    randomFood() {
+        return {
+            x: Math.floor(Math.random() * (this.canvas.width / this.gridSize)),
+            y: Math.floor(Math.random() * (this.canvas.height / this.gridSize)),
+        };
+    }
+
+    update() {
+        if (this.paused || this.gameOver) return;
+
+        const head = {
+            x: this.snake[0].x + this.direction.x,
+            y: this.snake[0].y + this.direction.y,
+        };
+
+        // Check collision with walls
+        if (
+            head.x < 0 ||
+            head.y < 0 ||
+            head.x >= this.canvas.width / this.gridSize ||
+            head.y >= this.canvas.height / this.gridSize
+        ) {
+            return this.endGame();
+        }
+
+        // Check collision with self
+        if (this.snake.some((part) => part.x === head.x && part.y === head.y)) {
+            return this.endGame();
+        }
+
+        this.snake.unshift(head);
+
+        // Check food
+        if (head.x === this.food.x && head.y === this.food.y) {
+            this.score++;
+            this.food = this.randomFood();
+        } else {
+            this.snake.pop();
+        }
+
+        this.draw();
+    }
+
+    draw() {
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Snake
+        this.ctx.fillStyle = "lime";
+        for (const part of this.snake) {
+            this.ctx.fillRect(part.x * this.gridSize, part.y * this.gridSize, this.gridSize, this.gridSize);
+        }
+
+        // Food
+        this.ctx.fillStyle = "red";
+        this.ctx.fillRect(this.food.x * this.gridSize, this.food.y * this.gridSize, this.gridSize, this.gridSize);
+
+        // Score
+        this.ctx.fillStyle = "white";
+        this.ctx.font = "16px Arial";
+        this.ctx.fillText("Score: " + this.score, 10, 20);
+    }
+
+    endGame() {
+        this.gameOver = true;
+        clearInterval(this.gameLoop);
+        this.ctx.fillStyle = "white";
+        this.ctx.font = "24px Arial";
+        this.ctx.fillText("Game Over - Press Any Key or BLE Button", 50, this.canvas.height / 2);
+    }
+
+    restartGame() {
+        this.snake = [{ x: 5, y: 5 }];
+        this.direction = { x: 1, y: 0 };
+        this.food = this.randomFood();
+        this.score = 0;
+        this.gameOver = false;
+        this.paused = false;
+        clearInterval(this.gameLoop);
+        this.gameLoop = setInterval(() => this.update(), 150);
+    }
+}
+
 
 // === Placeholder Game Example ===
 class PlaceholderGame {
