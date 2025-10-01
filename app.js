@@ -175,7 +175,7 @@ class FlappyBirdGame {
     this.bleListener = this.handleBLEInput.bind(this);
 
     if (isTouchDevice()) {
-      document.getElementById("flappyControls")?.style.display = "block";
+      document.getElementById("flappyControls").style.display = "block";
       document.getElementById("flapButton")?.addEventListener("click", () => { this.gameOver ? this.restartGame() : this.flap()});
     }
   }
