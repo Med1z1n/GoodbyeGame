@@ -118,6 +118,26 @@ h1 {
   min-height: 50px;
 }
 
+#snakeControls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 2vw;
+  flex-wrap: wrap;
+  touch-action: pan-x pan-y;
+}
+
+#snakeControls button {
+  font-family: 'Patrick Hand SC', cursive;
+  padding: 3vw 6vw;
+  font-size: 4vw;
+  border-radius: 1vw;
+  border: none;
+  cursor: pointer;
+  min-width: 80px;
+  min-height: 50px;
+}
+
 /* @media (hover: none) and (pointer: coarse) {
   .mobileControls {
     display: block;
