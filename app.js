@@ -440,10 +440,10 @@ class SnakeGame {
         });
 
         // === Touch buttons (mobile) ===
-        document.getElementById("btnUp")?.addEventListener("click", () => this.changeDirection(0, -1));
-        document.getElementById("btnDown")?.addEventListener("click", () => this.changeDirection(0, 1));
-        document.getElementById("btnLeft")?.addEventListener("click", () => this.changeDirection(-1, 0));
-        document.getElementById("btnRight")?.addEventListener("click", () => this.changeDirection(1, 0));
+        document.getElementById("SbtnUp")?.addEventListener("click", () => this.changeDirection(0, -1));
+        document.getElementById("SbtnDown")?.addEventListener("click", () => this.changeDirection(0, 1));
+        document.getElementById("SbtnLeft")?.addEventListener("click", () => this.changeDirection(-1, 0));
+        document.getElementById("SbtnRight")?.addEventListener("click", () => this.changeDirection(1, 0));
 
         document.getElementById('connectButton')?.addEventListener('click', async () => {
             try {
