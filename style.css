@@ -152,6 +152,35 @@ h1 {
   min-height: 50px;
 }
 
+#snakeControls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 2vw;
+  flex-wrap: wrap;
+  touch-action: pan-x pan-y;
+}
+
+#flappyControls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 2vw;
+  flex-wrap: wrap;
+  touch-action: pan-x pan-y;
+}
+
+#flappyControls button {
+  font-family: 'Patrick Hand SC', cursive;
+  padding: 3vw 6vw;
+  font-size: 4vw;
+  border-radius: 1vw;
+  border: none;
+  cursor: pointer;
+  min-width: 80px;
+  min-height: 50px;
+}
+
 /* Hide controls by default, shown via JS if touch device */
 #pongControls {
   display: none;
