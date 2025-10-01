@@ -83,7 +83,7 @@ class SpaceShooter {
         this.score = 0;
         this.wave = 1;
         this.gameOver = false;
-        this.paused = false;
+        this.d = false;
 
         // Movement
         this.leftPressed = false;
@@ -408,10 +408,13 @@ class SnakeGame {
         this.paused = false;
 
         this.lastBLEValue = null; // to debounce 3/4 press+release
+        
 
         this.initControls();
         this.gameLoop = setInterval(() => this.update(), 150);
     }
+
+    
 
     initControls() {
         // === Keyboard ===
@@ -436,6 +439,12 @@ class SnakeGame {
                 this.handleNotification(event)
             );
         }
+
+        const pauseGameButton = document.getElementById("pauseButton");
+
+        pauseGameButton.addEventListener("click", () => {
+            this.paused = !this.paused;
+        });
     }
 
     handleNotification(event) {
