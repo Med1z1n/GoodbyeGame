@@ -165,7 +165,7 @@ class FlappyBirdGame {
     this.lift = -10;
     this.pipes = [];
     this.pipeWidth = 40;
-    this.pipeGap = 120;
+    this.pipeGap = 180;
     this.pipeSpeed = 2;
 
     this.score = 0;
@@ -192,6 +192,13 @@ class FlappyBirdGame {
 
     // Start with initial pipes
     this.pipes.push(this.generatePipe(this.canvas.width));
+
+    const pauseGameButton = document.getElementById("pauseButton");
+
+    pauseGameButton.addEventListener("click", () => {
+      this.paused = !this.paused;
+    });
+
   }
 
   stop() {
