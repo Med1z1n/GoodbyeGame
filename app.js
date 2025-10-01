@@ -38,9 +38,9 @@ function startGame(gameName) {
     document.getElementById("menu").style.display = "none";
     canvas.style.display = "block";
     backToMenuButton.style.display = "block";
-    if (isTouchDevice()) {
-      document.getElementById("mobileControls").style.display = "block";
-    }
+    // if (isTouchDevice()) {
+    //   document.getElementById("mobileControls").style.display = "block";
+    // }
     if (currentGame && currentGame.stop) currentGame.stop();
 
     switch(gameName) {
@@ -66,6 +66,11 @@ class SpaceShooter {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
         this.animationFrame = null;
+
+        // controls display
+        if (isTouchDevice()) {
+          document.getElementById("mobileControls").style.display = "block";
+        }
 
         // BLE
         this.device = null;
@@ -412,6 +417,10 @@ class SnakeGame {
         this.characteristic = null;
         this.SERVICE_UUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
         this.CHAR_UUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
+
+        if (isTouchDevice()) {
+          document.getElementById("snakeControls").style.display = "block";
+        }
 
         this.initControls();
         this.gameLoop = setInterval(() => this.update(), 150);
