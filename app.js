@@ -407,8 +407,11 @@ class SnakeGame {
         this.gameOver = false;
         this.paused = false;
 
-        this.lastBLEValue = null; // to debounce 3/4 press+release
-        
+        // BLE
+        this.device = null;
+        this.characteristic = null;
+        this.SERVICE_UUID = '4a980001-1cc4-e7c1-c757-f1267dd021e8';
+        this.CHAR_UUID = '4a980002-1cc4-e7c1-c757-f1267dd021e8';
 
         this.initControls();
         this.gameLoop = setInterval(() => this.update(), 150);
@@ -468,13 +471,8 @@ class SnakeGame {
     }
 
     handleNotification(event) {
-        const value = new TextDecoder().decode(event.target.value).trim();
+        const value = new TextDecoder().decode(event.target.value);
         if (this.gameOver) return this.restartGame();
-
-        // Prevent duplicate press+release events for 3/4
-        if (value === this.lastBLEValue) return;
-        this.lastBLEValue = value;
-        setTimeout(() => { this.lastBLEValue = null; }, 100);
 
         if (value.startsWith("1:")) this.changeDirection(-1, 0); // left
         else if (value.startsWith("2:")) this.changeDirection(1, 0); // right
