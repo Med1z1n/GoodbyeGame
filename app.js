@@ -433,12 +433,32 @@ class SnakeGame {
         document.getElementById("btnLeft")?.addEventListener("click", () => this.changeDirection(-1, 0));
         document.getElementById("btnRight")?.addEventListener("click", () => this.changeDirection(1, 0));
 
-        // === BLE (connected externally, inject handler) ===
-        if (window.BLECharacteristic) {
-            window.BLECharacteristic.addEventListener("characteristicvaluechanged", (event) =>
-                this.handleNotification(event)
-            );
-        }
+        document.getElementById('connectButton')?.addEventListener('click', async () => {
+            try {
+                this.device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: "Sienna's Remote" }],
+                    optionalServices: [this.SERVICE_UUID]
+                });
+                const server = await this.device.gatt.connect();
+                const service = await server.getPrimaryService(this.SERVICE_UUID);
+                this.characteristic = await service.getCharacteristic(this.CHAR_UUID);
+                await this.characteristic.startNotifications();
+                this.characteristic.addEventListener('characteristicvaluechanged', this.handleNotification.bind(this));
+
+                const btn = document.getElementById('connectButton');
+                btn.innerText = "Connected";
+                btn.disabled = true;
+
+                this.device.addEventListener('gattserverdisconnected', () => {
+                    btn.innerText = "Connect to Device";
+                    btn.disabled = false;
+                    console.log('BLE disconnected');
+                });
+            } catch (err) {
+                console.error(err);
+                alert("BLE Error: "+err.message);
+            }
+        });
 
         const pauseGameButton = document.getElementById("pauseButton");
 
