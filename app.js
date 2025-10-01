@@ -475,9 +475,9 @@ class SnakeGame {
         if (this.gameOver) return this.restartGame();
 
         if (value.startsWith("1:")) this.changeDirection(-1, 0); // left
-        else if (value.startsWith("2:")) this.changeDirection(1, 0); // right
-        else if (value === "3") this.changeDirection(0, -1); // up
-        else if (value === "4") this.changeDirection(0, 1);  // down
+        else if (value.startsWith("2:")) this.changeDirection(0, -1); // up
+        else if (value === "3") this.changeDirection(0, 1); // down
+        else if (value === "4") this.changeDirection(1, 0);  // right
     }
 
     changeDirection(x, y) {
