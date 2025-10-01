@@ -89,7 +89,7 @@ h1 {
     background-color: #2980b9;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1080px) {
   #gameCanvas {
     width: 95vw;     /* fill most of screen width */
     height: 60vh;    /* keep space for buttons */
