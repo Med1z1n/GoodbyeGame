@@ -118,6 +118,7 @@ backToMenuButton.addEventListener("click", () => {
   document.getElementById("mobileControls").style.display = "none";
   document.getElementById("snakeControls").style.display = "none";
   document.getElementById("pongControls").style.display = "none";
+  document.getElementById("flappyControls").style.display = "none";
   backToMenuButton.style.display = "none";
 
   document.getElementById("menu").style.display = "flex";
@@ -143,12 +144,169 @@ function startGame(gameName) {
     case "Pong":
       currentGame = new PongGame(canvas);
       break;
+    case "Flappy":
+      currentGame = new FlappyBirdGame(canvas);
+      break;
     case "placeholder":
       currentGame = new PlaceholderGame(canvas);
       break;
   }
 
   currentGame.start();
+}
+
+class FlappyBirdGame {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+
+    this.bird = { x: 50, y: canvas.height / 2, vy: 0, width: 20, height: 20 };
+    this.gravity = 0.6;
+    this.lift = -10;
+    this.pipes = [];
+    this.pipeWidth = 40;
+    this.pipeGap = 120;
+    this.pipeSpeed = 2;
+
+    this.score = 0;
+    this.gameOver = false;
+    this.paused = false;
+
+    this.bleListener = this.handleBLEInput.bind(this);
+
+    if (isTouchDevice()) {
+      document.getElementById("flappyControls")?.style.display = "block";
+      document.getElementById("flapButton")?.addEventListener("click", () => { this.gameOver ? this.restartGame() : this.flap()});
+    }
+  }
+
+  start() {
+    document.addEventListener("keydown", this.keydownHandler = (e) => {
+      if (this.gameOver) return this.restartGame();
+      if (e.key === " " || e.key === "ArrowUp") this.flap();
+      if (e.key === "p") this.paused = !this.paused;
+    });
+
+    bleManager.addListener(this.bleListener);
+    this.gameLoop = setInterval(() => this.update(), 20);
+
+    // Start with initial pipes
+    this.pipes.push(this.generatePipe(this.canvas.width));
+  }
+
+  stop() {
+    clearInterval(this.gameLoop);
+    document.removeEventListener("keydown", this.keydownHandler);
+    bleManager.removeListener(this.bleListener);
+  }
+
+  handleBLEInput(value) {
+    if (this.gameOver) return this.restartGame();
+    if (value.startsWith("1:") || value.startsWith("2:") || value === "3" || value === "4") this.flap(); // Map any button for flap
+  }
+
+  flap() {
+    this.bird.vy = this.lift;
+  }
+
+  generatePipe(x) {
+    const topHeight = Math.floor(Math.random() * (this.canvas.height - this.pipeGap - 40)) + 20;
+    return { x, top: topHeight, bottom: topHeight + this.pipeGap };
+  }
+
+  update() {
+    if (this.paused || this.gameOver) return;
+
+    // Apply gravity
+    this.bird.vy += this.gravity;
+    this.bird.y += this.bird.vy;
+
+    // Move pipes
+    for (let pipe of this.pipes) {
+      pipe.x -= this.pipeSpeed;
+    }
+
+    // Add new pipe if needed
+    if (this.pipes[this.pipes.length - 1].x < this.canvas.width - 200) {
+      this.pipes.push(this.generatePipe(this.canvas.width));
+    }
+
+    // Remove offscreen pipes
+    if (this.pipes[0].x + this.pipeWidth < 0) {
+      this.pipes.shift();
+      this.score++;
+    }
+
+    // Collision detection
+    for (let pipe of this.pipes) {
+      if (
+        this.bird.x + this.bird.width > pipe.x &&
+        this.bird.x < pipe.x + this.pipeWidth &&
+        (this.bird.y < pipe.top || this.bird.y + this.bird.height > pipe.bottom)
+      ) {
+        this.endGame();
+      }
+    }
+
+    // Floor & ceiling collision
+    if (this.bird.y + this.bird.height > this.canvas.height || this.bird.y < 0) {
+      this.endGame();
+    }
+
+    this.draw();
+  }
+
+  draw() {
+    // Clear screen
+    this.ctx.fillStyle = "skyblue";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Draw bird
+    this.ctx.fillStyle = "yellow";
+    this.ctx.fillRect(this.bird.x, this.bird.y, this.bird.width, this.bird.height);
+
+    // Draw pipes
+    this.ctx.fillStyle = "green";
+    for (let pipe of this.pipes) {
+      this.ctx.fillRect(pipe.x, 0, this.pipeWidth, pipe.top);
+      this.ctx.fillRect(pipe.x, pipe.bottom, this.pipeWidth, this.canvas.height - pipe.bottom);
+    }
+
+    // Draw score
+    this.ctx.fillStyle = "white";
+    this.ctx.font = "20px Arial";
+    this.ctx.fillText("Score: " + this.score, 10, 20);
+
+    // Paused text
+    if (this.paused) {
+      this.ctx.fillStyle = "white";
+      this.ctx.font = "24px Arial";
+      this.ctx.fillText("Paused", this.canvas.width / 2 - 40, this.canvas.height / 2);
+    }
+
+    // Game over text
+    if (this.gameOver) {
+      this.ctx.fillStyle = "white";
+      this.ctx.font = "24px Arial";
+      this.ctx.fillText("Game Over - Press Any Key or BLE Button", 20, this.canvas.height / 2);
+    }
+  }
+
+  endGame() {
+    this.gameOver = true;
+    clearInterval(this.gameLoop);
+  }
+
+  restartGame() {
+    this.bird.y = this.canvas.height / 2;
+    this.bird.vy = 0;
+    this.pipes = [this.generatePipe(this.canvas.width)];
+    this.score = 0;
+    this.gameOver = false;
+    this.paused = false;
+    clearInterval(this.gameLoop);
+    this.gameLoop = setInterval(() => this.update(), 20);
+  }
 }
 
 // === Base Game Class ===
